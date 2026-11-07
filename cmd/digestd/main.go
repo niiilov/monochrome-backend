@@ -17,6 +17,7 @@ import (
 	"cyberdigest/internal/api"
 	"cyberdigest/internal/config"
 	"cyberdigest/internal/mailer"
+	"cyberdigest/internal/runner"
 	"cyberdigest/internal/runner/fake"
 )
 
@@ -31,26 +32,41 @@ func run(args []string) error {
 	fs := flag.NewFlagSet("digestd", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	fakeMode := fs.Bool("fake", false, "подготовленный прогон без модели")
+	mockMode := fs.Bool("mock", false, "реальный раннер с локальной моделью, без сети")
 	configPath := fs.String("config", "config.yaml", "путь к config.yaml")
 	runsDir := fs.String("runs", "runs", "каталог состояния прогонов")
 	fixture := fs.String("fixture", "testdata/fake_run", "каталог подготовленного прогона для --fake")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if !*fakeMode {
-		return errors.New("реальный раннер подключается на этапе S11b, запустите с флагом --fake")
+	if *fakeMode && *mockMode {
+		return errors.New("флаги --fake и --mock вместе не используются")
+	}
+	loadDotEnv(".env")
+	raw, err := os.ReadFile(*configPath)
+	if err != nil {
+		return fmt.Errorf("конфигурация %s: %w", *configPath, err)
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(*fixture, "digest.md")); err != nil {
-		return fmt.Errorf("подготовленный прогон %s: %w", *fixture, err)
+	var pipeline runner.Runner
+	if *fakeMode {
+		if _, err := os.Stat(filepath.Join(*fixture, "digest.md")); err != nil {
+			return fmt.Errorf("подготовленный прогон %s: %w", *fixture, err)
+		}
+		replay := fake.New(*fixture)
+		replay.Delay = 120 * time.Millisecond
+		pipeline = replay
+	} else {
+		pipeline, err = buildRunner(cfg, raw, *mockMode)
+		if err != nil {
+			return fmt.Errorf("%w. Для прогона без сети добавьте --mock, для подготовленного выпуска --fake", err)
+		}
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	runner := fake.New(*fixture)
-	runner.Delay = 120 * time.Millisecond
-	service := api.New(runner, mailer.New(cfg.Mail, log), *runsDir, log)
+	service := api.New(pipeline, mailer.New(cfg.Mail, log), *runsDir, log)
 	httpServer := &http.Server{
 		Handler:           service.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -62,7 +78,7 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("адрес %s: %w", cfg.Server.Addr, err)
 	}
-	log.Info("сервер запущен", "addr", ln.Addr().String(), "fake", true)
+	log.Info("сервер запущен", "addr", ln.Addr().String(), "fake", *fakeMode, "mock", *mockMode)
 	errCh := make(chan error, 1)
 	go func() {
 		if err := httpServer.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

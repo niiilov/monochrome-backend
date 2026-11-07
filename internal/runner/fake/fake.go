@@ -1,5 +1,5 @@
 // Package fake is a runner.Runner that replays testdata/fake_run.
-// It stands in for the real pipeline until S11b wires runner.New.
+// cmd/digestd uses it with --fake. Without that flag the server calls runner.New.
 package fake
 
 import (
