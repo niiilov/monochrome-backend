@@ -1,2 +1,2 @@
-// Package journal accumulates and writes the processing journal.
+// Package journal collects one processing row per dataset ID and writes journal.csv and journal.json.
 package journal
