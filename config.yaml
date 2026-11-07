@@ -1,0 +1,64 @@
+llm:
+  provider: openai
+  base_url: ""
+  model: ""
+  temperature: 0
+  seed: 7
+  timeout_sec: 90
+  max_concurrency: 4
+  max_input_chars: 24000
+  price_per_1m_input: null
+  price_per_1m_output: null
+  cache_dir: ""
+ingest:
+  field_map:
+    id: id
+    title: title
+    text: text
+    source: source
+    url: url
+    published_at: published_at
+  missing_markers:
+    - ""
+    - "null"
+    - "N/A"
+    - "не заполнено"
+  min_text_chars: 200
+period:
+  hours: 24
+  naive_tz_policy: assume_msk
+cluster:
+  similarity_threshold: 0.35
+  max_pairs_per_article: 5
+rank:
+  max_events: 5
+  weights:
+    impact: 0.30
+    scale: 0.25
+    urgency: 0.25
+    relevance: 0.20
+limits:
+  digest_chars: 4000
+  post_chars: 2000
+verify:
+  max_retries: 2
+  critic_enabled: false
+mail:
+  dry_run: true
+  host: ""
+  port: 587
+  user: ""
+  from: ""
+  allowlist: []
+critic:
+  model: ""
+live:
+  enabled: false
+  sources_file: sources.yaml
+  timeout_sec: 20
+  max_retries: 2
+  user_agent: cyberdigest/0.1
+  cache_dir: ""
+  respect_robots: true
+server:
+  addr: ":8080"
