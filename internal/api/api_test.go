@@ -69,7 +69,7 @@ func TestHealthAndPage(t *testing.T) {
 func TestPreviewExportAndAllowlist(t *testing.T) {
 	ts, sender := newAPI(t, fake.New(fixture("testdata/fake_run")), []string{"ok@example.com"}, true)
 	dataset := fixture("testdata/synthetic/articles.json")
-	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", `{"dataset":"`+dataset+`","control_time":"2026-11-07T12:00:00+03:00"}`)
+	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", createPayload(t, dataset))
 	if code != http.StatusAccepted {
 		t.Fatalf("create %d %s", code, raw)
 	}
@@ -265,7 +265,7 @@ func TestSendWhileRunningIsConflict(t *testing.T) {
 	block := &blockRunner{stub: &stubRunner{}, release: make(chan struct{}), entered: make(chan struct{}, 1)}
 	ts, _ := newAPI(t, block, []string{"ok@example.com"}, true)
 	dataset := fixture("testdata/synthetic/articles.json")
-	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", `{"dataset":"`+dataset+`","control_time":"2026-11-07T12:00:00+03:00"}`)
+	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", createPayload(t, dataset))
 	if code != http.StatusAccepted {
 		t.Fatalf("create %d %s", code, raw)
 	}
@@ -413,6 +413,19 @@ func waitDone(t *testing.T, base, id string) map[string]any {
 	}
 	t.Fatalf("timeout %+v", last)
 	return nil
+}
+
+// createPayload marshals the path so Windows backslashes stay valid JSON.
+func createPayload(t *testing.T, dataset string) string {
+	t.Helper()
+	raw, err := json.Marshal(map[string]string{
+		"dataset":      dataset,
+		"control_time": "2026-11-07T12:00:00+03:00",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
 }
 
 func doJSON(t *testing.T, method, url, payload string) (int, map[string]any, []byte) {

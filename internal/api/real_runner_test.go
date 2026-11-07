@@ -36,8 +36,7 @@ func TestRealRunnerOnSynthetic(t *testing.T) {
 	})
 	ts, sender := newAPI(t, pipeline, []string{"jury@example.com"}, true)
 
-	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs",
-		`{"dataset":"`+dataset+`","control_time":"2026-11-07T12:00:00+03:00"}`)
+	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", createPayload(t, dataset))
 	if code != http.StatusAccepted {
 		t.Fatalf("create %d %s", code, raw)
 	}
