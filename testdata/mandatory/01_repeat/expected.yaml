@@ -1,0 +1,45 @@
+id: T1
+title: Повтор одного события
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+events: 1
+order:
+  - "Северная гавань"
+recipients: []
+journal:
+  - id: t1-sl
+    status: включён
+    group: "E01"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: t1-xakep
+    status: объединён
+    group: "E01"
+    reason_code: merged
+    reason_contains: "Сообщение о том же событии"
+    error_empty: true
+  - id: t1-kom
+    status: объединён
+    group: "E01"
+    reason_code: merged
+    reason_contains: "Сообщение о том же событии"
+    error_empty: true
+digest:
+  must_contain:
+  - "Подходящих событий меньше пяти."
+  - "https://www.securitylab.ru/news/610011"
+  - "https://xakep.ru/2026/11/06/severnaya-gavan/"
+  - "https://www.kommersant.ru/doc/610011"
+  - "640"
+  must_not_contain: []
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.securitylab.ru/news/610011
+  - https://xakep.ru/2026/11/06/severnaya-gavan/
+  - https://www.kommersant.ru/doc/610011
+allow_emails: []
