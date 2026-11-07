@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кибердайджест</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 "Segoe UI", sans-serif; background: #f4f6f8; color: #1c2430; }
+  main { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  p.lead { margin: 0 0 16px; color: #4b5563; }
+  section { background: #fff; border: 1px solid #d8dee6; border-radius: 8px; padding: 14px; margin: 0 0 14px; }
+  label { display: block; font-size: 0.92rem; margin: 8px 0 4px; }
+  input[type="text"], input[type="file"], textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #c5ced8; border-radius: 6px; font: inherit; }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button, .btn { background: #1f4e79; color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  button.secondary, .btn.secondary { background: #4b5563; }
+  button:disabled, .btn.disabled { opacity: 0.45; cursor: default; }
+  #msg { min-height: 1.3em; margin: 8px 0 0; }
+  #msg.error { color: #9b1c1c; }
+  #msg.ok { color: #166534; }
+  #stages { margin: 8px 0 0; padding-left: 18px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .tabs button { background: #e8eef5; color: #1c2430; }
+  .tabs button.active { background: #1f4e79; color: #fff; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #f8fafc; border-radius: 6px; padding: 10px; margin: 0; max-height: 480px; overflow: auto; }
+  iframe { width: 100%; height: 480px; border: 1px solid #d8dee6; border-radius: 6px; background: #fff; }
+  .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+  .check input { width: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Кибердайджест</h1>
+  <p class="lead">Запуск, предпросмотр, выгрузка и тестовая отправка. Получатели задаются только в форме ниже.</p>
+
+  <section>
+    <h2>Запуск</h2>
+    <form id="run-form">
+      <label for="dataset-path">Путь к набору на сервере</label>
+      <input id="dataset-path" type="text" placeholder="testdata/synthetic/articles.json">
+      <label for="dataset-file">Или загрузите файл</label>
+      <input id="dataset-file" type="file">
+      <label for="control-time">Контрольное время (RFC3339 или ДД.ММ.ГГГГ ЧЧ:ММ, без пояса это МСК)</label>
+      <input id="control-time" type="text" value="2026-11-07T12:00:00+03:00">
+      <div class="row"><button type="submit">Запустить</button></div>
+    </form>
+    <p id="run-id"></p>
+    <p id="progress">Прогон не запущен</p>
+    <ul id="stages"></ul>
+    <p id="msg"></p>
+  </section>
+
+  <section>
+    <h2>Предпросмотр</h2>
+    <div class="tabs">
+      <button type="button" class="active" data-tab="digest">Дайджест</button>
+      <button type="button" data-tab="post">Пост</button>
+      <button type="button" data-tab="email">Письмо</button>
+      <button type="button" data-tab="journal">Журнал</button>
+    </div>
+    <pre id="pane-text">Здесь появится текст выпуска.</pre>
+    <iframe id="pane-mail" sandbox title="Письмо" hidden></iframe>
+  </section>
+
+  <section>
+    <h2>Выгрузка и отправка</h2>
+    <div class="row">
+      <a id="export-btn" class="btn disabled" href="#">Выгрузить</a>
+    </div>
+    <form id="send-form">
+      <label for="recipients">Адреса для тестовой рассылки</label>
+      <input id="recipients" type="text" placeholder="jury@example.com">
+      <p class="lead">Пустое поле берет адреса из ALLOWED_TEST_RECIPIENTS. Адрес вне списка будет отклонен.</p>
+      <label class="check"><input id="dry-run" type="checkbox" checked> dry-run, без реальной отправки</label>
+      <div class="row"><button type="submit" id="send-btn" disabled>Разослать (тест)</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Добавить публикацию</h2>
+    <form id="article-form">
+      <label for="article-title">Заголовок</label>
+      <input id="article-title" type="text" placeholder="Дополнительная публикация">
+      <label for="article-text">Текст</label>
+      <textarea id="article-text" placeholder="Текст новой публикации"></textarea>
+      <label for="article-file">Или файл</label>
+      <input id="article-file" type="file">
+      <div class="row"><button type="submit" id="article-btn" disabled>Добавить и перезапустить</button></div>
+    </form>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
