@@ -53,10 +53,29 @@
     }
   }
 
+  var stageNames = {
+    load: "загрузка",
+    normalize: "нормализация",
+    period: "период",
+    guard: "проверка инъекций",
+    topic: "тема",
+    extract: "извлечение",
+    cluster: "кластеризация",
+    rank: "ранжирование",
+    select: "отбор",
+    summarize: "тексты",
+    verify: "проверка",
+    write: "запись"
+  };
+
+  function stageName(name) {
+    return stageNames[name] || name;
+  }
+
   function renderStatus(data) {
     var line = "Статус: " + (data.status || "");
     if (data.stage) {
-      line += ", этап " + data.stage;
+      line += ", этап " + stageName(data.stage);
       if (data.total) {
         line += " (" + data.done + "/" + data.total + ")";
       }
@@ -70,7 +89,7 @@
     var list = data.stages || [];
     for (var i = 0; i < list.length; i++) {
       var item = document.createElement("li");
-      item.textContent = list[i].name + " " + list[i].done + "/" + list[i].total;
+      item.textContent = stageName(list[i].name) + " " + list[i].done + "/" + list[i].total;
       stages.appendChild(item);
     }
     if (data.status === "failed") {
