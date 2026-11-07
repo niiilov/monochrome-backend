@@ -1,0 +1,47 @@
+id: T4
+title: Вне периода, новые факты и повтор без фактов
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+events: 1
+order:
+  - "Мост-Связь"
+recipients: []
+journal:
+  - id: t4-old
+    status: исключён
+    group: ""
+    reason_code: out_of_period
+    reason_contains: "вне периода"
+    error_empty: true
+  - id: t4-new
+    status: включён
+    group: "E01"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: t4-stale
+    status: исключён
+    group: ""
+    reason_code: stale_no_new_facts
+    reason_contains: "Повтор раннего события без новых фактов"
+    error_empty: true
+digest:
+  must_contain:
+  - "Подходящих событий меньше пяти."
+  - "https://www.securitylab.ru/news/610441"
+  must_not_contain:
+  - "https://www.comnews.ru/content/241104/most-svyaz"
+  - "https://www.gazeta.ru/tech/2026/11/07/most-svyaz.shtml"
+  must_contain_any:
+  - ["1 800", "1800"]
+  - ["6,2", "6.2"]
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.comnews.ru/content/241104/most-svyaz
+  - https://www.securitylab.ru/news/610441
+  - https://www.gazeta.ru/tech/2026/11/07/most-svyaz.shtml
+allow_emails: []

@@ -1,0 +1,47 @@
+# Трудные входы уже лежат в этом каталоге (этап S1).
+# Прогон не падает. Журнал покрывает каждую прочитанную или отвергнутую запись.
+run_must_not_fail: true
+journal_complete: true
+cases:
+  - file: empty.json
+    kind: empty
+    expect: Пустой файл дает строку журнала empty_input. Прогон продолжается.
+  - file: cp1251.json
+    kind: encoding
+    expect: windows-1251 читается как текст. Прогон не падает, в журнале есть запись.
+  - file: koi8r.json
+    kind: encoding
+    expect: koi8-r читается как текст. Прогон не падает, в журнале есть запись.
+  - file: utf16.json
+    kind: encoding
+    expect: UTF-16 читается как текст. Прогон не падает, в журнале есть запись.
+  - file: utf8-bom.json
+    kind: encoding
+    expect: UTF-8 с BOM читается как текст. Прогон не падает, в журнале есть запись.
+  - file: large.json
+    kind: huge
+    expect: Статья больше 1 МБ не останавливает прогон. Журнал покрывает запись.
+  - file: nulls.json
+    kind: nulls
+    expect: Нулевые байты в тексте не останавливают прогон. Журнал покрывает запись.
+  - file: broken.json
+    kind: broken
+    expect: Битый JSON становится строкой read_error. Остальной прогон жив.
+  - file: duplicates.json
+    kind: duplicate
+    expect: Повтор идентификатора не роняет загрузку. В журнале есть пометка duplicate_id.
+  - file: noid.json
+    kind: missing_id
+    expect: Запись без идентификатора получает unknown-N и не обрывает прогон.
+  - file: jsonl-bad.jsonl
+    kind: broken_line
+    expect: Битая строка JSONL попадает в журнал. Соседние строки читаются.
+  - file: semicolon.csv
+    kind: csv
+    expect: CSV с разделителем «;» читается. Прогон не падает.
+  - file: dir/one.json
+    kind: directory
+    expect: Файл внутри каталога читается вместе с соседями. Прогон не падает.
+  - file: dir/note.txt
+    kind: directory
+    expect: Текстовый файл в каталоге становится записью. Прогон не падает.
