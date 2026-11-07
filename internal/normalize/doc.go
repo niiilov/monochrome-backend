@@ -1,2 +1,2 @@
-// Package normalize cleans article text and assigns source kinds.
+// Package normalize cleans article text and splits long text into chunks.
 package normalize
