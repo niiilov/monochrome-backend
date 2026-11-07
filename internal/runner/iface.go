@@ -1,5 +1,3 @@
-// Package runner defines the pipeline entry point.
-// The implementation (New and Deps) arrives in S9. API and tests depend only on this interface.
 package runner
 
 import (
