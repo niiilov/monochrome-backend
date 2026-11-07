@@ -387,7 +387,7 @@ func applyUpdates(ctx context.Context, c llm.Client, events []domain.Event, arts
 	}
 	out := make([]domain.Event, 0, len(events))
 	for _, ev := range events {
-		matched := matchContext(ev, ctxArts, cfg)
+		matched := onlyEarlier(matchContext(ev, ctxArts, cfg), ev, arts)
 		ev.ContextArticleIDs = contextIDs(matched, arts)
 		var drop map[string]bool
 		if len(matched) > 0 {
@@ -563,8 +563,51 @@ func updateOne(ctx context.Context, c llm.Client, freshID string, fresh domain.A
 	return cleanList(verdict.NewFacts), nil
 }
 
+// onlyEarlier drops context articles that are not older than the event.
+// A note published after the control time is out of period, but it is not an earlier report.
+func onlyEarlier(matched []domain.Article, ev domain.Event, arts map[string]domain.Article) []domain.Article {
+	when := earliestPublication(ev, arts)
+	if when.IsZero() {
+		return matched
+	}
+	out := make([]domain.Article, 0, len(matched))
+	for _, a := range matched {
+		if a.PublishedAt == nil || !a.PublishedAt.Before(when) {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func earliestPublication(ev domain.Event, arts map[string]domain.Article) time.Time {
+	var best time.Time
+	for _, m := range ev.Mentions {
+		a, ok := arts[m.ArticleID]
+		if !ok || a.PublishedAt == nil {
+			continue
+		}
+		if best.IsZero() || a.PublishedAt.Before(best) {
+			best = *a.PublishedAt
+		}
+	}
+	return best
+}
+
+// earlierWithoutContext drops a repeat that points at an event outside this cluster.
+// A reprint that sits next to the original report stays, so its link remains on the event.
 func earlierWithoutContext(ev domain.Event) map[string]bool {
+	hasOriginal := false
+	for _, m := range ev.Mentions {
+		if !m.ReferencesEarlier {
+			hasOriginal = true
+			break
+		}
+	}
 	drop := map[string]bool{}
+	if hasOriginal {
+		return drop
+	}
 	for _, m := range ev.Mentions {
 		if m.ReferencesEarlier && len(m.NewFacts) == 0 {
 			drop[m.ID] = true
