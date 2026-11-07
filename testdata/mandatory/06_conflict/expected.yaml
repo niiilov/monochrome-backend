@@ -1,0 +1,40 @@
+id: T6
+title: Противоречивые сообщения
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+events: 1
+recipients: []
+journal:
+  - id: t6-co
+    status: включён
+    group: "E01"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: t6-news
+    status: объединён
+    group: "E01"
+    reason_code: merged
+    reason_contains: "Сообщение о том же событии"
+    error_empty: true
+digest:
+  must_contain:
+  - "Подходящих событий меньше пяти."
+  - "https://www.securitylab.ru/news/610602"
+  - "https://www.kommersant.ru/doc/610602"
+  - "расхожд"
+  - "5 ноября 2026"
+  - "3 ноября 2026"
+  must_not_contain: []
+  must_contain_any:
+  - ["15 400", "15400"]
+  - ["48 000", "48000"]
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.securitylab.ru/news/610602
+  - https://www.kommersant.ru/doc/610602
+allow_emails: []

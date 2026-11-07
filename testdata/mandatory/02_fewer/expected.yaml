@@ -1,0 +1,46 @@
+id: T2
+title: Меньше пяти событий
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+events: 3
+recipients: []
+journal:
+  - id: t2-phish
+    status: включён
+    group: "E01"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: t2-ddos
+    status: включён
+    group: "E02"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: t2-cve
+    status: включён
+    group: "E03"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+digest:
+  must_contain:
+  - "Подходящих событий меньше пяти."
+  - "Событий в выпуске: 3"
+  - "210"
+  - "90"
+  - "CVE-2026-44110"
+  - "https://www.cnews.ru/news/2026/11/06/lastochka-phish"
+  - "https://xakep.ru/2026/11/06/gorod-portal-n/"
+  - "https://www.ptsecurity.com/ru-ru/research/threatscape/cve-2026-44110/"
+  must_not_contain: []
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.cnews.ru/news/2026/11/06/lastochka-phish
+  - https://xakep.ru/2026/11/06/gorod-portal-n/
+  - https://www.ptsecurity.com/ru-ru/research/threatscape/cve-2026-44110/
+allow_emails: []

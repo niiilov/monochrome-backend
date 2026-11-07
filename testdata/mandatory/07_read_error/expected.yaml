@@ -1,0 +1,36 @@
+id: T7
+title: Ошибка чтения рядом с корректным файлом
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+  - broken.json
+events: 1
+order:
+  - "Порт-Кама"
+recipients: []
+journal:
+  - id: t7-ok
+    status: включён
+    group: "E01"
+    reason_code: selected
+    reason_contains: "Событие вошло в выпуск"
+    error_empty: true
+  - id: unknown-1
+    status: исключён
+    group: ""
+    reason_code: read_error
+    reason_contains: "Не удалось прочитать запись"
+    error_contains: "Не удалось прочитать"
+digest:
+  must_contain:
+  - "Подходящих событий меньше пяти."
+  - "https://www.securitylab.ru/news/610707"
+  - "420"
+  must_not_contain: []
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.securitylab.ru/news/610707
+allow_emails: []

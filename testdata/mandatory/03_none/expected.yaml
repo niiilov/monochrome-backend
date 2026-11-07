@@ -1,0 +1,56 @@
+id: T3
+title: Нет подходящих новостей
+control_time: "2026-11-07T12:00:00+03:00"
+dataset:
+  - input.json
+events: 0
+recipients: []
+journal:
+  - id: t3-sport
+    status: исключён
+    group: ""
+    reason_code: off_topic
+    reason_contains: "не относится к теме информационной безопасности"
+    error_empty: true
+  - id: t3-rate
+    status: исключён
+    group: ""
+    reason_code: off_topic
+    reason_contains: "не относится к теме информационной безопасности"
+    error_empty: true
+  - id: t3-phone
+    status: исключён
+    group: ""
+    reason_code: off_topic
+    reason_contains: "не относится к теме информационной безопасности"
+    error_empty: true
+  - id: t3-old
+    status: исключён
+    group: ""
+    reason_code: out_of_period
+    reason_contains: "вне периода"
+    error_empty: true
+digest:
+  must_contain:
+  - "Подходящих событий за период нет"
+  must_not_contain:
+  - "Речфлот-Сервис"
+  - "Спартак-Юг"
+  - "Нова-Фон"
+
+limits:
+  digest: 4000
+  post: 2000
+allow_urls:
+  - https://www.gazeta.ru/sport/2026/11/07/spartak-yug.shtml
+  - https://www.cbr.ru/press/keypr/2026-11-06/
+  - https://3dnews.ru/2026/11/07/nova-fon-x2
+  - https://www.securitylab.ru/news/610300
+allow_emails: []
+texts:
+  post.txt:
+    must_contain:
+      - "Подходящих событий за период нет"
+  email.txt:
+    must_contain:
+      - "Подходящих событий за период нет"
