@@ -31,6 +31,8 @@ type OpenAI struct {
 	http          *http.Client
 	schemaOK      atomic.Bool
 	seedOK        atomic.Bool
+	proxySecrets  []string
+	proxyErr      error
 }
 
 // NewOpenAI builds an HTTP client from llm settings.
@@ -40,13 +42,19 @@ func NewOpenAI(cfg config.LLM) *OpenAI {
 	if timeout <= 0 {
 		timeout = 90 * time.Second
 	}
+	httpClient, secrets, proxyErr := newLLMHTTPClient(timeout)
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: timeout}
+	}
 	c := &OpenAI{
 		baseURL:       strings.TrimSpace(cfg.BaseURL),
 		apiKey:        cfg.APIKey,
 		model:         strings.TrimSpace(cfg.Model),
 		maxInputRunes: cfg.MaxInputChars,
 		seed:          cfg.Seed,
-		http:          &http.Client{Timeout: timeout},
+		http:          httpClient,
+		proxySecrets:  secrets,
+		proxyErr:      proxyErr,
 	}
 	c.schemaOK.Store(true)
 	c.seedOK.Store(true)
@@ -59,6 +67,9 @@ func NewOpenAI(cfg config.LLM) *OpenAI {
 func (c *OpenAI) Complete(ctx context.Context, r Request) (Response, error) {
 	if c == nil {
 		return Response{}, errors.New("llm: клиент не задан")
+	}
+	if c.proxyErr != nil {
+		return Response{}, c.proxyErr
 	}
 	if strings.TrimSpace(c.apiKey) == "" {
 		return Response{}, errors.New("llm: не задан LLM_API_KEY")
@@ -122,12 +133,12 @@ func (c *OpenAI) post(ctx context.Context, r Request, useSchema, useSeed bool) (
 	applyAuth(req, c.baseURL, c.apiKey)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return 0, nil, 0, false, redactErr(err, c.apiKey)
+		return 0, nil, 0, false, c.redactErr(err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return resp.StatusCode, nil, 0, false, redactErr(err, c.apiKey)
+		return resp.StatusCode, nil, 0, false, c.redactErr(err)
 	}
 	after, hasAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
 	return resp.StatusCode, body, after, hasAfter, nil
@@ -299,11 +310,14 @@ func redactSecret(s, secret string) string {
 	return strings.ReplaceAll(s, secret, "[redacted]")
 }
 
-func redactErr(err error, secret string) error {
-	if err == nil {
-		return nil
+func (c *OpenAI) redactErr(err error) error {
+	if err == nil || c == nil {
+		return err
 	}
-	msg := redactSecret(err.Error(), secret)
+	msg := redactSecret(err.Error(), c.apiKey)
+	for _, secret := range c.proxySecrets {
+		msg = redactSecret(msg, secret)
+	}
 	if msg == err.Error() {
 		return err
 	}
