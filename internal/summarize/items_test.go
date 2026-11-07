@@ -22,7 +22,7 @@ func TestPromptsRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" {
+	if version != "4" {
 		t.Fatalf("version %s", version)
 	}
 	for _, phrase := range []string{
@@ -45,7 +45,7 @@ func TestPromptsRender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pv != "1" || !strings.Contains(ps, "2000") || !strings.Contains(pu, "2000") {
+	if pv != "2" || !strings.Contains(ps, "2000") || !strings.Contains(pu, "2000") {
 		t.Fatalf("post prompt %s", pu)
 	}
 	if textutil.HasLongDash(ps) || textutil.HasLongDash(pu) {

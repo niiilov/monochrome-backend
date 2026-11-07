@@ -70,7 +70,9 @@ var patterns = []pattern{
 	{KindRoleOverride, regexp.MustCompile(`(?i)ты[\s+\-_]+теперь`)},
 	{KindSendTo, regexp.MustCompile(`(?i)отправ(?:ь|ьте)[\s+\-_]+на(?:[^\p{L}]|$)`)},
 	{KindSendTo, regexp.MustCompile(`(?i)\bsend[\s+\-_]+(?:this[\s+\-_]+|it[\s+\-_]+)?to\b`)},
-	{KindForward, regexp.MustCompile(`(?i)перешл(?:и|ите)(?:[^\p{L}]|$)`)},
+	// "перешли на бумажные талоны" is ordinary news past tense, not an injection.
+	{KindForward, regexp.MustCompile(`(?i)перешл(?:и|ите)[\s+\-_]+(?:это|его|её|их|письмо|новость|дайджест|текст|ссылку|материал|статью|результат)(?:[^\p{L}]|$)`)},
+	{KindForward, regexp.MustCompile(`(?i)перешл(?:и|ите)[\s+\-_]+на[\s+\-_]+\S+@`)},
 	{KindForward, regexp.MustCompile(`(?i)\bforward[\s+\-_]+(?:this[\s+\-_]+|it[\s+\-_]+)?to\b`)},
 	{KindPutFirst, regexp.MustCompile(`(?i)включи(?:те)?[\s+\-_]+эту[\s+\-_]+новость[\s+\-_]+первой`)},
 	{KindPutFirst, regexp.MustCompile(`(?i)\b(?:put|place|include)[\s+\-_]+this[\s+\-_]+(?:news|article|story|item)[\s+\-_]+first\b`)},

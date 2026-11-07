@@ -120,6 +120,38 @@ func TestGateDegradesInventedNumberURLAndQuote(t *testing.T) {
 	}
 }
 
+func TestGateDegradeKeepsEventRationale(t *testing.T) {
+	w := spoil(sample())
+	w.events[0].Rationale = "Утечка затрагивает персональные данные граждан."
+	client := mock.New()
+	client.When("write_digest_item", "", itemPayload(
+		"Утечка 99999 записей",
+		"Утекли 99999 записей. «полностью выдумано».",
+		"",
+		"",
+	))
+	res, err := Gate(context.Background(), client, w.model, w.events, w.arts, Options{MaxRetries: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Report.Degraded {
+		t.Fatal("ожидалась деградация")
+	}
+	if strings.Contains(res.DigestMD, "Обоснование отбора в данных события не приведено") {
+		t.Fatalf("обоснование стерто:\n%s", res.DigestMD)
+	}
+	if !strings.Contains(res.DigestMD, "персональные данные") {
+		t.Fatalf("нет обоснования события:\n%s", res.DigestMD)
+	}
+	if !strings.Contains(res.DigestMD, "20") {
+		t.Fatalf("пропал факт 20:\n%s", res.DigestMD)
+	}
+	if strings.Contains(res.DigestMD, "Источник описывает событие") {
+		t.Fatalf("осталась заглушка сути:\n%s", res.DigestMD)
+	}
+	denyErrors(t, res.Findings)
+}
+
 func spoil(w world) world {
 	w.model = cloneModel(w.model)
 	item := &w.model.Items[0]

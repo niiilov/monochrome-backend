@@ -15,7 +15,7 @@ func TestRenderCommonRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" {
+	if version != "2" {
 		t.Fatalf("version %q", version)
 	}
 	for _, phrase := range []string{
