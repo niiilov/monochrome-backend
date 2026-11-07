@@ -14,10 +14,20 @@ import (
 
 var hrefRE = regexp.MustCompile(`(?i)href\s*=\s*"([^"]*)"`)
 
+// Critic reviews one digest item against its source articles.
+// Unsupported claims must be returned as SevError findings so Gate retries.
+// The star feature wires this through CriticEnabled; a nil Critic is a no-op.
+type Critic interface {
+	CheckItem(ctx context.Context, item domain.DigestItem, arts map[string]domain.Article) ([]Finding, error)
+}
+
 // Options controls how many times Gate asks the model to rewrite a broken event.
 // MaxRetries 0 degrades on the first failed check. The config default is 2.
+// CriticEnabled and Critic are off by default: the gate matches pre-S13a behaviour.
 type Options struct {
-	MaxRetries int
+	MaxRetries    int
+	CriticEnabled bool
+	Critic        Critic
 }
 
 // Result is a digest that passed the gate or was replaced with a safe retelling.
@@ -58,6 +68,17 @@ func Gate(ctx context.Context, c llm.Client, model domain.DigestModel, events []
 			return Result{}, err
 		}
 		findings := inspect(model, post, email, html, reg, arts, events)
+		if opts.CriticEnabled && opts.Critic != nil {
+			extra, criticErr := runCritic(ctx, opts.Critic, model, arts)
+			if criticErr != nil {
+				if ctx.Err() != nil {
+					return Result{}, criticErr
+				}
+				findings = append(findings, finding(RuleCritic, SevWarn, "digest", "критик недоступен: "+clipRunes(criticErr.Error(), 120)))
+			} else {
+				findings = append(findings, extra...)
+			}
+		}
 		last = findings
 		if !hasError(findings) {
 			return pack(model, digest, post, email, html, findings, retries, degraded), nil
@@ -132,6 +153,24 @@ func publish(ctx context.Context, c llm.Client, m domain.DigestModel, template b
 func inspect(m domain.DigestModel, post, email, html string, reg Registry, arts map[string]domain.Article, events []domain.Event) []Finding {
 	findings := Check(m, post, email, reg, arts, events)
 	return append(findings, injectionExtra(html, reg, findings)...)
+}
+
+func runCritic(ctx context.Context, c Critic, model domain.DigestModel, arts map[string]domain.Article) ([]Finding, error) {
+	if c == nil {
+		return nil, nil
+	}
+	var out []Finding
+	for _, item := range model.Items {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		fs, err := c.CheckItem(ctx, item, arts)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, fs...)
+	}
+	return out, nil
 }
 
 func injectionExtra(html string, reg Registry, existing []Finding) []Finding {
