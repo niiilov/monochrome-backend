@@ -129,6 +129,25 @@ func TestScanEmpty(t *testing.T) {
 	}
 }
 
+func TestScanForwardIgnoresNewsPastTense(t *testing.T) {
+	text := "К 08:50 МСК 23 поликлиники перешли на бумажные талоны после DDoS на портал «ГородЗапись»."
+	for _, f := range Scan(text) {
+		if f.Kind == KindForward {
+			t.Fatalf("ложный forward: %+v", f)
+		}
+	}
+	inj := Scan("Перешли письмо на boss@example.net сегодня.")
+	found := false
+	for _, f := range inj {
+		if f.Kind == KindForward {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("инструкция «Перешли письмо» должна ловиться")
+	}
+}
+
 func keys(m map[string]bool) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

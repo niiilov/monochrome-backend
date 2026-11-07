@@ -331,6 +331,9 @@ func stripChrome(text string) string {
 			continue
 		case strings.HasPrefix(trimmed, "Источники:"):
 			continue
+		case strings.HasPrefix(trimmed, "Обоснование:"):
+			// Ranking rationale is digest-only; post keeps essence and consequences.
+			continue
 		}
 		trimmed = headingRE.ReplaceAllString(trimmed, "")
 		trimmed = postNumRE.ReplaceAllString(trimmed, "")

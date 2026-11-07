@@ -15,12 +15,13 @@ const noRationale = "Обоснование отбора в данных соб�
 func templateShorts(m domain.DigestModel) []summarize.ShortItem {
 	out := make([]summarize.ShortItem, 0, len(m.Items))
 	for i, item := range m.Items {
-		parts := []string{strings.TrimSpace(item.Essence)}
+		// Ranking rationale stays in digest.md; the post only needs facts.
+		essence := strings.TrimSpace(item.Essence)
+		parts := []string{essence}
 		if consequences := strings.TrimSpace(item.Consequences); consequences != "" && consequences != summarize.NoConsequences {
-			parts = append(parts, consequences)
-		}
-		if rationale := strings.TrimSpace(item.Rationale); rationale != "" {
-			parts = append(parts, rationale)
+			if !strings.Contains(strings.ToLower(essence), strings.ToLower(consequences)) {
+				parts = append(parts, consequences)
+			}
 		}
 		n := item.N
 		if n <= 0 {
@@ -87,15 +88,32 @@ func degradeItem(item domain.DigestItem, event domain.Event, arts map[string]dom
 		next.Sources = refs
 	}
 	if useFacts {
-		next.Title = pickTitle(event, body, urls)
-		next.Essence = pickEssence(event, body, urls)
-		next.Consequences = pickConsequences(event, body, urls)
-		next.Rationale = pickRationale(event, body, urls)
+		next.Title = firstGrounded(
+			pickTitle(event, body, urls),
+			groundLine(item.Title, body, urls, 180),
+			"Событие",
+		)
+		next.Essence = firstGrounded(
+			pickEssence(event, body, urls),
+			groundProse(item.Essence, body, urls),
+			"Источник описывает событие.",
+		)
+		next.Consequences = firstGrounded(
+			pickConsequences(event, body, urls),
+			groundProse(item.Consequences, body, urls),
+			summarize.NoConsequences,
+		)
+		next.Rationale = firstGrounded(
+			pickRationale(event, body, urls),
+			groundProse(item.Rationale, body, urls),
+			noRationale,
+		)
 	} else {
-		next.Title = "Событие"
-		next.Essence = "Источник описывает событие."
-		next.Consequences = summarize.NoConsequences
-		next.Rationale = noRationale
+		// Hard path still prefers grounded facts and ranking rationale over blank stubs.
+		next.Title = firstGrounded(pickTitle(event, body, urls), "Событие")
+		next.Essence = firstGrounded(pickEssence(event, body, urls), "Источник описывает событие.")
+		next.Consequences = firstGrounded(pickConsequences(event, body, urls), summarize.NoConsequences)
+		next.Rationale = firstGrounded(pickRationale(event, body, urls), noRationale)
 	}
 	next.Essence = applyHedges(next.Essence, event, body, urls)
 	if strings.TrimSpace(next.Title) == "" {
@@ -113,25 +131,41 @@ func degradeItem(item domain.DigestItem, event domain.Event, arts map[string]dom
 	return next
 }
 
+func firstGrounded(parts ...string) string {
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			return part
+		}
+	}
+	return ""
+}
+
 func pickTitle(event domain.Event, body string, urls map[string]bool) string {
 	for _, mention := range event.Mentions {
-		if title, ok := cleanCandidate(mention.TitleDraft, body, urls); ok {
-			return cutLine(title, 180)
+		if title := groundLine(mention.TitleDraft, body, urls, 180); title != "" {
+			return title
 		}
 	}
 	for _, fact := range factsOf(event) {
-		if title, ok := cleanCandidate(fact.Text, body, urls); ok {
+		if title := groundLine(fact.Text, body, urls, 180); title != "" {
+			return cutLine(firstSentence(title), 180)
+		}
+		if title := groundLine(fact.Quote, body, urls, 180); title != "" {
 			return cutLine(firstSentence(title), 180)
 		}
 	}
-	return "Событие"
+	return ""
 }
 
 func pickEssence(event domain.Event, body string, urls map[string]bool) string {
 	var parts []string
 	for _, fact := range factsOf(event) {
-		text, ok := cleanCandidate(fact.Text, body, urls)
-		if !ok {
+		text := groundProse(fact.Text, body, urls)
+		if text == "" {
+			text = groundProse(fact.Quote, body, urls)
+		}
+		if text == "" {
 			continue
 		}
 		parts = append(parts, finishPeriod(text))
@@ -144,33 +178,69 @@ func pickEssence(event domain.Event, body string, urls map[string]bool) string {
 
 func pickConsequences(event domain.Event, body string, urls map[string]bool) string {
 	for _, mention := range event.Mentions {
-		text, ok := cleanCandidate(mention.Consequences, body, urls)
-		if ok {
+		if text := groundProse(mention.Consequences, body, urls); text != "" {
 			return finishPeriod(text)
 		}
 	}
-	return summarize.NoConsequences
+	return ""
 }
 
 func pickRationale(event domain.Event, body string, urls map[string]bool) string {
-	if text, ok := cleanCandidate(event.Rationale, body, urls); ok {
+	if text := groundProse(event.Rationale, body, urls); text != "" {
 		return finishPeriod(text)
 	}
-	return noRationale
+	return ""
 }
 
 func applyHedges(essence string, event domain.Event, body string, urls map[string]bool) string {
 	for _, hedge := range hedgeGaps(eventHedges(event), essence) {
+		if hasAttribution(essence) {
+			break
+		}
 		line := hedgeFallback(hedge)
-		if cleaned, ok := cleanCandidate(line, body, urls); ok {
+		if cleaned := groundProse(line, body, urls); cleaned != "" {
 			essence = strings.TrimSpace(essence + " " + finishPeriod(cleaned))
 			continue
 		}
-		essence = strings.TrimSpace(essence + " По данным источника.")
+		// Fixed marker lines have no invented numbers or quotes.
+		essence = strings.TrimSpace(essence + " " + finishPeriod(line))
 	}
-	return finishPeriod(essence)
+	return finishPeriod(dedupeSentences(essence))
 }
 
+func hasAttribution(prose string) bool {
+	for _, marker := range hedgeMarkers {
+		if markerHits(prose, marker) {
+			return true
+		}
+	}
+	low := strings.ToLower(foldWS(prose))
+	for _, phrase := range []string{
+		"опирается", "по ее заявлен", "по её заявлен",
+		"компания заявила", "компания сообщила",
+	} {
+		if strings.Contains(low, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+func dedupeSentences(text string) string {
+	var out []string
+	seen := map[string]bool{}
+	for _, sentence := range splitSentences(text) {
+		key := strings.ToLower(foldWS(sentence))
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, sentence)
+	}
+	return strings.Join(out, " ")
+}
+
+// cleanCandidate keeps the strict all-or-nothing check used by older call sites.
 func cleanCandidate(text, corpus string, urls map[string]bool) (string, bool) {
 	text = foldWS(textutil.ReplaceLongDash(text))
 	if text == "" || stopPhrase(text) != "" {
@@ -193,6 +263,100 @@ func cleanCandidate(text, corpus string, urls map[string]bool) (string, bool) {
 		}
 	}
 	return text, true
+}
+
+func groundLine(text, corpus string, urls map[string]bool, limit int) string {
+	text = groundProse(text, corpus, urls)
+	if text == "" {
+		return ""
+	}
+	return cutLine(text, limit)
+}
+
+// groundProse drops invented numbers, unknown URLs and unverified quotes
+// sentence by sentence instead of discarding the whole retelling.
+func groundProse(text, corpus string, urls map[string]bool) string {
+	text = foldWS(textutil.ReplaceLongDash(text))
+	if text == "" || stopPhrase(text) != "" {
+		return ""
+	}
+	allowed := numberSet(corpus)
+	var kept []string
+	for _, sentence := range splitSentences(text) {
+		sentence = foldWS(sentence)
+		if sentence == "" || stopPhrase(sentence) != "" {
+			continue
+		}
+		badNumber := false
+		for _, number := range textutil.ExtractNumbers(sentence) {
+			if !allowed[number] {
+				badNumber = true
+				break
+			}
+		}
+		if badNumber {
+			continue
+		}
+		sentence = stripUnknownURLs(sentence, urls)
+		sentence = stripUnknownQuotes(sentence, corpus)
+		sentence = foldWS(sentence)
+		if sentence == "" {
+			continue
+		}
+		kept = append(kept, sentence)
+	}
+	return strings.Join(kept, " ")
+}
+
+func stripUnknownURLs(text string, urls map[string]bool) string {
+	for _, raw := range textutil.ExtractURLs(text) {
+		if urlKnown(raw, urls) {
+			continue
+		}
+		text = strings.ReplaceAll(text, raw, " ")
+	}
+	return foldWS(text)
+}
+
+func stripUnknownQuotes(text, corpus string) string {
+	rs := []rune(text)
+	pairs := [][2]rune{
+		{'«', '»'},
+		{'"', '"'},
+		{'„', '“'},
+	}
+	var b strings.Builder
+	for i := 0; i < len(rs); {
+		matched := false
+		for _, pair := range pairs {
+			if rs[i] != pair[0] {
+				continue
+			}
+			for j := i + 1; j < len(rs) && j-i <= 400; j++ {
+				if rs[j] != pair[1] {
+					continue
+				}
+				inner := strings.TrimSpace(string(rs[i+1 : j]))
+				if quoteInCorpus(inner, corpus) {
+					b.WriteString(string(rs[i : j+1]))
+				} else {
+					b.WriteByte(' ')
+				}
+				i = j + 1
+				matched = true
+				break
+			}
+			if matched {
+				break
+			}
+		}
+		if matched {
+			continue
+		}
+		b.WriteRune(rs[i])
+		i++
+	}
+	return foldWS(b.String())
 }
 
 func factsOf(event domain.Event) []domain.Fact {

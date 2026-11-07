@@ -3,7 +3,10 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -233,6 +236,22 @@ func TestRedactKeyInError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "[redacted]") {
 		t.Fatalf("redaction marker missing: %s", err.Error())
+	}
+}
+
+func TestRedactErrKeepsRetryableNetError(t *testing.T) {
+	c := &OpenAI{apiKey: "k", proxySecrets: []string{"proxy-pass"}}
+	base := &net.OpError{Op: "read", Err: io.ErrUnexpectedEOF}
+	wrapped := fmt.Errorf("proxy://user:proxy-pass@host: dial: %w", base)
+	got := c.redactErr(wrapped)
+	if strings.Contains(got.Error(), "proxy-pass") {
+		t.Fatalf("secret leaked: %s", got.Error())
+	}
+	if !retryable(got) {
+		t.Fatalf("redacted net error must stay retryable: %v", got)
+	}
+	if !errors.Is(got, io.ErrUnexpectedEOF) {
+		t.Fatalf("unwrap lost: %v", got)
 	}
 }
 

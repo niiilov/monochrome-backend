@@ -70,21 +70,27 @@ func gapsFor(hedge, prose string) []string {
 	if h == "" {
 		return nil
 	}
+	if hasAttribution(prose) {
+		return nil
+	}
 	matched := false
-	var missing []string
 	for _, marker := range hedgeMarkers {
 		if !strings.Contains(h, marker.key) {
 			continue
 		}
 		matched = true
 		if markerHits(prose, marker) {
-			continue
+			return nil
 		}
-		missing = append(missing, hedge)
-		return missing
+		return []string{hedge}
 	}
 	if matched {
 		return nil
+	}
+	for _, marker := range hedgeMarkers {
+		if markerHits(prose, marker) {
+			return nil
+		}
 	}
 	if strings.Contains(strings.ToLower(prose), h) {
 		return nil
@@ -106,15 +112,8 @@ func hedgeFallback(hedge string) string {
 			return marker.line
 		}
 	}
-	line := strings.Join(strings.Fields(hedge), " ")
-	if line == "" {
-		return "По данным источника."
-	}
-	r, _ := lastRune(line)
-	if r != '.' && r != '!' && r != '?' {
-		line += "."
-	}
-	return line
+	// Do not paste raw extract fragments into the digest.
+	return "По данным источника."
 }
 
 func hasWordPrefix(text, prefix string) bool {

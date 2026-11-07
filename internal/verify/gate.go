@@ -76,7 +76,13 @@ func Gate(ctx context.Context, c llm.Client, model domain.DigestModel, events []
 			}
 			continue
 		}
-		forceTemplate = true
+		// Consistency/post errors have no event id. Rebuild the post once
+		// from digest fields; do not wipe every item as degraded stubs.
+		if !forceTemplate {
+			forceTemplate = true
+			continue
+		}
+		break
 	}
 
 	var changed bool

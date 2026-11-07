@@ -321,7 +321,28 @@ func (c *OpenAI) redactErr(err error) error {
 	if msg == err.Error() {
 		return err
 	}
-	return errors.New(msg)
+	// Keep the original error chain so retryable still sees net.Error / EOF.
+	return &redactedError{msg: msg, err: err}
+}
+
+// redactedError hides secrets in Error() but unwraps to the transport failure.
+type redactedError struct {
+	msg string
+	err error
+}
+
+func (e *redactedError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.msg
+}
+
+func (e *redactedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
 }
 
 func squash(s string) string {
