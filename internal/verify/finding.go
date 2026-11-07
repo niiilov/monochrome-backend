@@ -25,6 +25,8 @@ const (
 	RuleConsistency = "consistency"
 	RuleEmpty       = "empty"
 	RuleInjection   = "injection"
+	// RuleCritic is an optional star-feature finding from the AI critic.
+	RuleCritic = "critic"
 )
 
 // Finding is one deterministic check result.

@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-11-07T22:43:21+03:00",
+  "mock": true,
+  "cases": [
+    {
+      "name": "train",
+      "title": "учебный пересказ без подсаженных ошибок",
+      "without_critic": {
+        "mode": "without_critic",
+        "discrepancies": 0,
+        "duration_ms": 3,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "calls_total": 1,
+        "critic_calls": 0,
+        "cost": null,
+        "cost_unavailable": true,
+        "retries": 1,
+        "degraded": false,
+        "forbidden_hits": null,
+        "missing_required": null
+      },
+      "with_critic": {
+        "mode": "with_critic",
+        "discrepancies": 0,
+        "duration_ms": 3,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "calls_total": 3,
+        "critic_calls": 2,
+        "cost": null,
+        "cost_unavailable": true,
+        "retries": 1,
+        "degraded": false,
+        "forbidden_hits": null,
+        "missing_required": null
+      },
+      "delta": {
+        "discrepancies": 0,
+        "duration_ms": 0,
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    {
+      "name": "planted",
+      "title": "синтетика с подсаженными ошибками в пересказе",
+      "without_critic": {
+        "mode": "without_critic",
+        "discrepancies": 3,
+        "duration_ms": 4,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "calls_total": 1,
+        "critic_calls": 0,
+        "cost": null,
+        "cost_unavailable": true,
+        "retries": 1,
+        "degraded": false,
+        "forbidden_hits": [
+          "украден исходный код биллинга",
+          "диагнозы были опубликованы в открытом доступе",
+          "выкуп составил два миллиона долларов"
+        ],
+        "missing_required": null
+      },
+      "with_critic": {
+        "mode": "with_critic",
+        "discrepancies": 0,
+        "duration_ms": 5,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "calls_total": 6,
+        "critic_calls": 3,
+        "cost": null,
+        "cost_unavailable": true,
+        "retries": 2,
+        "degraded": false,
+        "forbidden_hits": null,
+        "missing_required": null
+      },
+      "delta": {
+        "discrepancies": -3,
+        "duration_ms": 1,
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  ],
+  "summary": "train: расхождений без критика 0, с критиком 0 (дельта 0); planted: расхождений без критика 3, с критиком 0 (дельта -3)"
+}
