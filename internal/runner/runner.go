@@ -17,6 +17,7 @@ import (
 	"cyberdigest/internal/extract"
 	"cyberdigest/internal/guard"
 	"cyberdigest/internal/ingest"
+	"cyberdigest/internal/ingest/live"
 	"cyberdigest/internal/journal"
 	"cyberdigest/internal/llm"
 	"cyberdigest/internal/normalize"
@@ -201,6 +202,10 @@ func (w *work) load(ctx context.Context) error {
 	articles, rows, err := ingest.LoadDataset(ctx, paths, w.deps.Config.Ingest)
 	if err != nil {
 		return fmt.Errorf("загрузка набора: %w", err)
+	}
+	// Live collection is off unless the run asked for it. The dataset path stays the same.
+	if w.deps.Config.Live.Enabled {
+		articles, rows = live.Merge(articles, rows, live.Collect(ctx, w.deps.Config.Live))
 	}
 	w.articles = articles
 	w.seedJournal(rows)

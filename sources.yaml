@@ -1,0 +1,29 @@
+# Живые источники для флага --live. По умолчанию сбор выключен (live.enabled: false).
+# Точный список и адреса не подтверждены, см. docs/progress/S13b.md.
+sources:
+  - id: securitylab
+    name: SecurityLab
+    kind: rss
+    url: https://www.securitylab.ru/_services/export/rss/news/
+  - id: xakep
+    name: Хакер
+    kind: rss
+    url: https://xakep.ru/feed/
+  - id: cnews
+    name: CNews
+    kind: rss
+    url: https://www.cnews.ru/inc/rss/news.xml
+  - id: comnews
+    name: ComNews
+    kind: html
+    url: https://www.comnews.ru/
+    item: article
+    title: h2
+    link: h2 a
+    date: time
+    text: p
+  - id: ptsecurity
+    name: Positive Technologies
+    kind: api
+    url: https://www.ptsecurity.com/api/news
+    items: items
