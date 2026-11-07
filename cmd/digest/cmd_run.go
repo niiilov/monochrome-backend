@@ -26,10 +26,11 @@ func runRun(ctx context.Context, args []string) int {
 		return code
 	}
 	if opts.help {
-		fmt.Println("Использование: digest run --dataset <path> --control-time <RFC3339 или ДД.ММ.ГГГГ ЧЧ:ММ> --out <dir> [--extra <file>] [--config config.yaml] [--mock]")
+		fmt.Println("Использование: digest run --dataset <path> --control-time <RFC3339 или ДД.ММ.ГГГГ ЧЧ:ММ> --out <dir> [--extra <file>] [--config config.yaml] [--mock] [--live] [--sources sources.yaml]")
 		fmt.Println("Собирает дайджест и пишет digest.md, post.txt, email_preview.html, email.txt, journal.csv, journal.json, run_report.json.")
 		fmt.Println("Флаг --extra можно повторять: файл добавляется к набору.")
 		fmt.Println("Флаг --mock запускает прогон без сетевой модели.")
+		fmt.Println("Флаг --live добавляет записи из sources.yaml. Без флага сбор выключен. --sources подменяет файл источников.")
 		return 0
 	}
 	// Stage progress is printed by the callback. Info notes from the pipeline
@@ -45,6 +46,12 @@ func runRun(ctx context.Context, args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run: %s\n", err)
 		return 2
+	}
+	if opts.live {
+		cfg.Live.Enabled = true
+	}
+	if strings.TrimSpace(opts.sources) != "" {
+		cfg.Live.SourcesFile = opts.sources
 	}
 	control, err := parseControl(opts.control, cfg.Period.NaiveTZPolicy)
 	if err != nil {
@@ -84,10 +91,12 @@ func runRun(ctx context.Context, args []string) int {
 type runOpts struct {
 	help       bool
 	mock       bool
+	live       bool
 	dataset    string
 	control    string
 	outDir     string
 	configPath string
+	sources    string
 	extra      []string
 }
 
@@ -101,7 +110,9 @@ func parseRunArgs(args []string) (runOpts, int, error) {
 			return opts, 0, nil
 		case arg == "--mock":
 			opts.mock = true
-		case arg == "--dataset" || arg == "--control-time" || arg == "--out" || arg == "--extra" || arg == "--config" || arg == "-config":
+		case arg == "--live":
+			opts.live = true
+		case arg == "--dataset" || arg == "--control-time" || arg == "--out" || arg == "--extra" || arg == "--config" || arg == "-config" || arg == "--sources":
 			value, err := takeValue(args, &i, arg)
 			if err != nil {
 				return opts, 2, err
@@ -115,6 +126,8 @@ func parseRunArgs(args []string) (runOpts, int, error) {
 				opts.outDir = value
 			case "--extra":
 				opts.extra = append(opts.extra, value)
+			case "--sources":
+				opts.sources = value
 			default:
 				opts.configPath = value
 			}
@@ -128,6 +141,8 @@ func parseRunArgs(args []string) (runOpts, int, error) {
 			opts.extra = append(opts.extra, strings.TrimPrefix(arg, "--extra="))
 		case strings.HasPrefix(arg, "--config="):
 			opts.configPath = strings.TrimPrefix(arg, "--config=")
+		case strings.HasPrefix(arg, "--sources="):
+			opts.sources = strings.TrimPrefix(arg, "--sources=")
 		default:
 			return opts, 2, fmt.Errorf("неизвестный аргумент %s", arg)
 		}

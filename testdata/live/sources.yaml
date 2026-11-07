@@ -1,0 +1,31 @@
+sources:
+  - id: securitylab
+    name: SecurityLab
+    kind: rss
+    url: securitylab.rss
+  - id: xakep
+    name: Хакер
+    kind: rss
+    url: xakep.rss
+  - id: comnews
+    name: ComNews
+    kind: html
+    url: comnews.html
+    item: article.item
+    title: h2 a
+    link: h2 a
+    date: time
+    text: p
+  - id: cnews
+    name: CNews
+    kind: rss
+    url: cnews.rss
+  - id: ptsecurity
+    name: Positive Technologies
+    kind: api
+    url: pt.json
+    items: items
+  - id: down
+    name: Недоступный источник
+    kind: rss
+    url: missing.rss

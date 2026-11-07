@@ -45,3 +45,9 @@ cases:
   - file: dir/note.txt
     kind: directory
     expect: Текстовый файл в каталоге становится записью. Прогон не падает.
+  - file: zero-fields.json
+    kind: zero_field
+    expect: Поле нулевой длины не останавливает загрузку. Запись остается в наборе или в журнале.
+  - file: huge.json
+    kind: huge_values
+    expect: Огромные числа не останавливают загрузку. Журнал покрывает запись.
