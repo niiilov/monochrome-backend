@@ -1,0 +1,40 @@
+[
+  {
+    "id": "fake-1",
+    "status": "включён",
+    "group": "E01",
+    "reason_code": "selected",
+    "reason": "Событие вошло в выпуск: затронут оператор связи.",
+    "error": "",
+    "source": "Волга-Линк",
+    "source_kind": "vendor",
+    "published_at_msk": "07.11.2026 10:00",
+    "topic": {
+      "is_on_topic": true,
+      "is_advertising": false,
+      "confidence": 0.9,
+      "matched_terms": ["утечка"],
+      "reason": "учебный пример"
+    },
+    "flags": [],
+    "trace": [
+      {"stage": "rank", "note": "выбрано в выпуск"}
+    ]
+  },
+  {
+    "id": "fake-2",
+    "status": "исключён",
+    "group": "",
+    "reason_code": "out_of_period",
+    "reason": "Публикация вне периода 06.11.2026 12:00 - 07.11.2026 12:00 МСК",
+    "error": "",
+    "source": "Архив",
+    "source_kind": "media",
+    "published_at_msk": "01.11.2026 09:00",
+    "topic": null,
+    "flags": [],
+    "trace": [
+      {"stage": "period", "note": "вне окна"}
+    ]
+  }
+]
