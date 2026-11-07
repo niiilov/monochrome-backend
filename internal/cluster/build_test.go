@@ -179,6 +179,60 @@ func TestReferencesEarlierWithoutContext(t *testing.T) {
 	}
 }
 
+func TestReprintStaysBesideOriginal(t *testing.T) {
+	fact := "Positive Technologies описала CVE-2026-22110 в программе Склад-Учёт, оценка CVSS 9.1."
+	arts := map[string]domain.Article{
+		"a": article("a", "Positive Technologies", domain.SourceVendor, at(2026, 11, 7, 8, 0), fact),
+		"b": article("b", "Лаборатория Касперского", domain.SourceVendor, at(2026, 11, 7, 11, 0), "Перепечатка: "+fact),
+	}
+	orig := mention("M-a-1", "a", "Склад-Учёт", fact)
+	reprint := mention("M-b-1", "b", "Склад-Учёт", "Перепечатка: "+fact)
+	reprint.ReferencesEarlier = true
+	reprint.IsReprint = true
+	m := mock.New()
+	m.When("cluster_confirm", "", confirmJSON(t, true, "перепечатка того же бюллетеня", nil))
+	res, err := BuildResult(context.Background(), m, []domain.Mention{orig, reprint}, arts, nil, config.Default().Cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Events) != 1 {
+		t.Fatalf("events %+v stale %v", res.Events, res.Stale)
+	}
+	ids := res.Events[0].ArticleIDs
+	if !contains(ids, "a") || !contains(ids, "b") {
+		t.Fatalf("reprint dropped: %v stale %v", ids, res.Stale)
+	}
+	if contains(res.Stale, "b") {
+		t.Fatalf("reprint marked stale: %v", res.Stale)
+	}
+}
+
+func TestLaterContextIsNotEarlier(t *testing.T) {
+	body := "Шлюз Линия-VPN версий ниже 5.4.1 получил патч против обхода второго фактора."
+	fresh := article("fresh", "Инфобезопасность", domain.SourceMedia, at(2026, 11, 7, 12, 0), body)
+	later := article("later", "Overclockers", domain.SourceMedia, at(2026, 11, 7, 12, 1), "Комментарий повторяет: "+body+" Новых жертв нет.")
+	evMention := mention("M-fresh-1", "fresh", "Линия-VPN", body)
+	raw := matchContext(domain.Event{Mentions: []domain.Mention{evMention}}, []domain.Article{later}, config.Default().Cluster)
+	if len(raw) == 0 {
+		t.Fatal("fixture does not match the later note")
+	}
+	m := mock.New()
+	m.When("update_check", "fresh", `{"new_facts":[]}`)
+	res, err := BuildResult(context.Background(), m, []domain.Mention{evMention}, map[string]domain.Article{"fresh": fresh}, []domain.Article{later}, config.Default().Cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Events) != 1 || contains(res.Stale, "fresh") {
+		t.Fatalf("later note staled the event: %+v stale %v", res.Events, res.Stale)
+	}
+	if len(res.Events[0].ContextArticleIDs) != 0 {
+		t.Fatalf("later note stored as context: %v", res.Events[0].ContextArticleIDs)
+	}
+	if m.CallsFor("update_check") != 0 {
+		t.Fatalf("update_check calls %d", m.CallsFor("update_check"))
+	}
+}
+
 func TestNumberAndDateConflict(t *testing.T) {
 	qa := "Медкарта-Онлайн назвала 840000 записей, инцидент 05.11.2026."
 	qb := "Медкарта-Онлайн назвала 1200000 записей, инцидент 06.11.2026."
@@ -498,7 +552,7 @@ func TestPromptsHaveNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatal("long dash or version")
 	}
 	if strings.Contains(system, "получател") || strings.Contains(user, "similarity_threshold") {
@@ -508,7 +562,7 @@ func TestPromptsHaveNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatal("long dash in update_check")
 	}
 }

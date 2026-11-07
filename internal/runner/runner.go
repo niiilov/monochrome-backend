@@ -374,7 +374,14 @@ func stampFlags(list []domain.Article, flags map[string][]string) []domain.Artic
 }
 
 func (w *work) classify(ctx context.Context) ([]domain.Article, error) {
-	list := append([]domain.Article(nil), w.inPeriod...)
+	var list []domain.Article
+	for _, article := range w.inPeriod {
+		if missingText(article) {
+			w.exclude(article.ID, domain.ReasonInsufficient, journal.Data{}, "")
+			continue
+		}
+		list = append(list, article)
+	}
 	start := w.begin("topic", len(list))
 	defer w.finish("topic", start, len(list))
 	if len(list) == 0 {
@@ -415,6 +422,18 @@ func (w *work) classify(ctx context.Context) ([]domain.Article, error) {
 		passed = append(passed, article)
 	}
 	return passed, nil
+}
+
+func missingText(article domain.Article) bool {
+	if strings.TrimSpace(article.Text) == "" {
+		return true
+	}
+	for _, field := range article.MissingFields {
+		if field == "text" {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *work) extract(ctx context.Context, passed []domain.Article) (map[string]string, error) {

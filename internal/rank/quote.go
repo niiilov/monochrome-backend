@@ -9,14 +9,21 @@ import (
 )
 
 // locateQuote returns the exact slice of article that matches quote after
-// whitespace is collapsed. The match is case-sensitive.
+// whitespace is collapsed. A case-sensitive hit wins. Case folding is the fallback.
 // The folding matches extract, so a quote still counts when only spaces differ.
 func locateQuote(article, quote string) (string, bool) {
-	qn := foldRunes(quote)
+	if exact, ok := locateFold(article, quote, false); ok {
+		return exact, true
+	}
+	return locateFold(article, quote, true)
+}
+
+func locateFold(article, quote string, lower bool) (string, bool) {
+	qn := foldRunes(quote, lower)
 	if len(qn) == 0 {
 		return "", false
 	}
-	an, origin := foldArticle(article)
+	an, origin := foldArticle(article, lower)
 	q := string(qn)
 	pos := strings.Index(an, q)
 	if pos < 0 {
@@ -48,12 +55,32 @@ func findQuote(arts []domain.Article, quote string) (string, bool) {
 		if exact, ok := locateQuote(a.Title, quote); ok {
 			return exact, true
 		}
+		if exact, ok := quoteAfterTitle(a.Title, a.Text, quote); ok {
+			return exact, true
+		}
 	}
 	return "", false
 }
 
+func quoteAfterTitle(title, text, quote string) (string, bool) {
+	title = strings.TrimSpace(title)
+	if title == "" || strings.TrimSpace(text) == "" {
+		return "", false
+	}
+	tn := string(foldRunes(title, true))
+	qn := string(foldRunes(quote, true))
+	if tn == "" || !strings.HasPrefix(qn, tn) {
+		return "", false
+	}
+	rest := strings.TrimSpace(qn[len(tn):])
+	if utf8.RuneCountInString(rest) < 12 {
+		return "", false
+	}
+	return locateQuote(text, rest)
+}
+
 // foldArticle collapses whitespace and records the original rune index of each kept rune.
-func foldArticle(s string) (string, []int) {
+func foldArticle(s string, lower bool) (string, []int) {
 	rs := []rune(s)
 	norm := make([]rune, 0, len(rs))
 	origin := make([]int, 0, len(rs))
@@ -70,6 +97,9 @@ func foldArticle(s string) (string, []int) {
 		}
 		started = true
 		prevSpace = false
+		if lower {
+			r = unicode.ToLower(r)
+		}
 		norm = append(norm, r)
 		origin = append(origin, i)
 	}
@@ -80,7 +110,7 @@ func foldArticle(s string) (string, []int) {
 	return string(norm), origin
 }
 
-func foldRunes(s string) []rune {
-	norm, _ := foldArticle(s)
+func foldRunes(s string, lower bool) []rune {
+	norm, _ := foldArticle(s, lower)
 	return []rune(norm)
 }

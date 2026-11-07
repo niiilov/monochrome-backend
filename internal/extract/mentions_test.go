@@ -206,6 +206,20 @@ func TestMentionsIgnoresInjection(t *testing.T) {
 	}
 }
 
+func TestQuoteAfterTitleAndCase(t *testing.T) {
+	title := "В утечке «ПолисМед» называют уже 640 000 записей"
+	text := "Со ссылкой на канал, который первым выложил образец, сообщается, что в утечке «ПолисМед» 640 000 записей."
+	glued := title + " " + text
+	got, ok := findQuote(text, title, glued)
+	if !ok || !strings.Contains(text, got) || !strings.Contains(got, "640 000") {
+		t.Fatalf("glued quote: %q %v", got, ok)
+	}
+	hedge, ok := findQuote(text, title, "со ссылкой на канал")
+	if !ok || hedge != "Со ссылкой на канал" {
+		t.Fatalf("case fold: %q %v", hedge, ok)
+	}
+}
+
 func TestPromptHasNoLongDash(t *testing.T) {
 	for _, name := range []string{"extract_events.system.tmpl", "extract_events.user.tmpl"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "prompts", name))
@@ -220,7 +234,7 @@ func TestPromptHasNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatalf("version %s or long dash in render", version)
 	}
 	if !strings.Contains(system, "Общие правила") || !strings.Contains(user, "CNews") {

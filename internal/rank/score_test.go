@@ -307,10 +307,10 @@ func TestPromptFiles(t *testing.T) {
 			t.Fatalf("long dash in %s", name)
 		}
 	}
-	if _, _, ver, err := prompts.Render("score_event", scorePrompt{Dossier: "Событие E01"}); err != nil || ver != "1" {
+	if _, _, ver, err := prompts.Render("score_event", scorePrompt{Dossier: "Событие E01"}); err != nil || ver != "2" {
 		t.Fatalf("score_event %s %v", ver, err)
 	}
-	if _, _, ver, err := prompts.Render("rationale", rationalePrompt{Dossier: "Событие E01", Consequences: "нет данных", Scale: "нет данных", Urgency: "нет данных"}); err != nil || ver != "1" {
+	if _, _, ver, err := prompts.Render("rationale", rationalePrompt{Dossier: "Событие E01", Consequences: "нет данных", Scale: "нет данных", Urgency: "нет данных"}); err != nil || ver != "2" {
 		t.Fatalf("rationale %s %v", ver, err)
 	}
 }

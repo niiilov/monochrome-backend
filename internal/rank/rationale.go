@@ -22,19 +22,19 @@ var (
 
 func fallbackRationale(g grounds) string {
 	parts := []string{
-		groundClause("Последствия", "сведения о последствиях не приведены", g.Consequences),
-		groundClause("масштаб", "сведения о масштабе не приведены", g.Scale),
-		groundClause("срочность", "сведения о срочности не приведены", g.Urgency),
+		groundClause("сведения о последствиях не приведены", g.Consequences),
+		groundClause("сведения о масштабе не приведены", g.Scale),
+		groundClause("сведения о срочности не приведены", g.Urgency),
 	}
-	return finishSentence(strings.Join(parts, "; "))
+	return finishSentence(strings.Join(parts, ", "))
 }
 
-func groundClause(label, absent, value string) string {
+func groundClause(absent, value string) string {
 	value = soften(value)
 	if value == "" {
 		return absent
 	}
-	return label + ": " + value
+	return value
 }
 
 // acceptRationale keeps the model sentence only when it is one sentence,

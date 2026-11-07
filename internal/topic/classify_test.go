@@ -223,7 +223,7 @@ func TestPromptHasNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "1" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatalf("version %s dash in render", version)
 	}
 	if !strings.Contains(system, "is_advertising") || !strings.Contains(user, "фишинг") {
