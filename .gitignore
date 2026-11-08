@@ -5,3 +5,4 @@ data/
 
 bin/
 submission/
+.vscode/settings.json
