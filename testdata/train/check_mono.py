@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Проверка формата выпуска по правилам кейса.
 
-Запуск: python check_digest.py <каталог с digest.md, post.txt и journal.csv>
+Запуск: python check_mono.py <каталог с mono.md, post.txt и journal.csv>
 Код выхода 0, если формат соблюден.
 """
 
@@ -26,14 +26,14 @@ EMPTY_EVENTS = "Подходящих событий за период нет"
 
 def main() -> int:
     if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help"):
-        print("Использование: python check_digest.py <каталог>", file=sys.stderr)
+        print("Использование: python check_mono.py <каталог>", file=sys.stderr)
         return 2
     out = Path(sys.argv[1])
     errors = []
-    digest_text, digest_ok = read_text(out / "digest.md", errors, "digest.md")
+    digest_text, digest_ok = read_text(out / "mono.md", errors, "mono.md")
     post_text, post_ok = read_text(out / "post.txt", errors, "post.txt")
     if digest_ok:
-        errors.extend(check_digest(digest_text))
+        errors.extend(check_mono(digest_text))
     if post_ok:
         errors.extend(check_post(post_text))
     errors.extend(check_journal(out / "journal.csv"))
@@ -62,39 +62,39 @@ def read_text(path: Path, errors: list, label: str) -> tuple:
         return "", False
 
 
-def check_digest(text: str) -> list:
+def check_mono(text: str) -> list:
     if not text.strip():
-        return ["digest.md: пустой дайджест"]
+        return ["mono.md: пустой дайджест"]
     errors = []
     if "\u2014" in text or "\u2013" in text:
-        errors.append("digest.md: длинное тире")
+        errors.append("mono.md: длинное тире")
     if "Не вошли" in text:
-        errors.append("digest.md: лишний блок")
+        errors.append("mono.md: лишний блок")
     count_chars = char_count(text)
     if count_chars > DIGEST_LIMIT:
-        errors.append(f"digest.md: лимит знаков: {count_chars}")
+        errors.append(f"mono.md: лимит знаков: {count_chars}")
     if HEADER_RE.search(text) is None:
-        errors.append("digest.md: заголовок выпуска не совпадает с форматом")
+        errors.append("mono.md: заголовок выпуска не совпадает с форматом")
     found = COUNT_RE.search(text)
     if found is None:
-        errors.append("digest.md: нет строки «Событий в выпуске»")
+        errors.append("mono.md: нет строки «Событий в выпуске»")
         return errors
     declared = int(found.group(1))
     matches = list(ITEM_RE.finditer(text))
     if declared == 0:
         if matches:
-            errors.append("digest.md: при нуле событий не должно быть блоков")
+            errors.append("mono.md: при нуле событий не должно быть блоков")
         if EMPTY_EVENTS not in text:
-            errors.append("digest.md: нет сообщения о пустом выпуске")
+            errors.append("mono.md: нет сообщения о пустом выпуске")
         return errors
     if declared > 5:
-        errors.append(f"digest.md: событий больше пяти: {declared}")
+        errors.append(f"mono.md: событий больше пяти: {declared}")
     if len(matches) != declared:
-        errors.append(f"digest.md: блоков {len(matches)}, в строке счёта {declared}")
+        errors.append(f"mono.md: блоков {len(matches)}, в строке счёта {declared}")
     for index, match in enumerate(matches):
         number = int(match.group(1))
         if number != index + 1:
-            errors.append(f"digest.md: номер {number}, ожидался {index + 1}")
+            errors.append(f"mono.md: номер {number}, ожидался {index + 1}")
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         errors.extend(check_block(text[match.start() : end]))
     return errors
@@ -106,11 +106,11 @@ def check_block(block: str) -> list:
     for label in LABELS:
         at = block.find("\n" + label)
         if at < 0 or at <= prev:
-            return ["digest.md: в блоке нет четырёх полей в нужном порядке"]
+            return ["mono.md: в блоке нет четырёх полей в нужном порядке"]
         rest = block[at + 1 + len(label) :]
         line = rest.split("\n", 1)[0]
         if not line.strip():
-            errors.append(f"digest.md: пустое поле {label.strip()}")
+            errors.append(f"mono.md: пустое поле {label.strip()}")
         prev = at
     return errors
 

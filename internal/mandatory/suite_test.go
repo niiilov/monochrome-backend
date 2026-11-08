@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 func TestScriptAnswersStayOnSchema(t *testing.T) {

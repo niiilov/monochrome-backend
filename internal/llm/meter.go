@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 // Meter sums calls, tokens, and cost per task.

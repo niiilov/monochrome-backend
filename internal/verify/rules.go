@@ -5,10 +5,10 @@ import (
 	"regexp"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/render"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/render"
+	"mono/internal/textutil"
 )
 
 var (

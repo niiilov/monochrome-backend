@@ -3,10 +3,10 @@ package rank
 import (
 	"strings"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/normalize"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/normalize"
 )
 
 const (

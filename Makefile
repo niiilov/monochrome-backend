@@ -1,14 +1,8 @@
-ifeq ($(OS),Windows_NT)
-SH := C:/PROGRA~1/Git/usr/bin/sh.exe
-else
-SH := sh
-endif
-
-.PHONY: build test vet lint tidy run status test-mandatory check test-live
+.PHONY: build test vet lint tidy run test-mandatory check test-live
 
 build:
-	go build -o bin/digest ./cmd/digest
-	go build -o bin/digestd ./cmd/digestd
+	go build -o bin/mono ./cmd/mono
+	go build -o bin/monod ./cmd/monod
 
 test:
 	go test ./...
@@ -23,16 +17,13 @@ tidy:
 	go mod tidy
 
 run:
-	go run ./cmd/digest run
-
-status:
-	$(SH) scripts/status.sh
+	go run ./cmd/mono run
 
 test-mandatory:
-	go run ./cmd/digest test-mandatory
+	go run ./cmd/mono test-mandatory
 
 check:
-	go run ./cmd/digest check
+	go run ./cmd/mono check
 
 test-live:
 	go test -tags live ./...

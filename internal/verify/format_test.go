@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/render"
+	"mono/internal/domain"
+	"mono/internal/journal"
+	"mono/internal/render"
 )
 
 func TestCheckFormatAcceptsDigestAndJournal(t *testing.T) {

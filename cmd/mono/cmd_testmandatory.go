@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"cyberdigest/internal/mandatory"
+	"mono/internal/mandatory"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func runTestMandatory(ctx context.Context, args []string) int {
 		return code
 	}
 	if opt.help {
-		fmt.Println("Использование: digest test-mandatory [--live] [--out out] [--config config.yaml]")
+		fmt.Println("Использование: mono test-mandatory [--live] [--out out] [--config config.yaml]")
 		fmt.Println("Прогоняет сценарии T1-T8, инъекции и трудные входы.")
 		fmt.Println("Без --live используется mock-модель. С --live вызывается модель из окружения.")
 		fmt.Println("Пишет tests_report.json и tests_report.md. Секреты в отчёт не попадают.")

@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 // OpenAI is an HTTP client for POST {base}/v1/chat/completions
@@ -129,7 +129,7 @@ func (c *OpenAI) post(ctx context.Context, r Request, useSchema, useSeed bool) (
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "cyberdigest/0.1")
+	req.Header.Set("User-Agent", "mono/0.1")
 	applyAuth(req, c.baseURL, c.apiKey)
 	resp, err := c.http.Do(req)
 	if err != nil {

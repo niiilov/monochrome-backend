@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 // Record is one dataset publication the digest is allowed to cite.

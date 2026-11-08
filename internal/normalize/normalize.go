@@ -3,8 +3,8 @@ package normalize
 import (
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
+	"mono/internal/domain"
+	"mono/internal/ingest"
 )
 
 // Apply cleans Title and Text, keeps RawText, and fills SourceKind from the source registry.

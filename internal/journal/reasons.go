@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/timeutil"
 )
 
 // Data fills the reason templates from the specification.

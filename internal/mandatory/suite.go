@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/runner"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest"
+	"mono/internal/llm"
+	"mono/internal/prompts"
+	"mono/internal/runner"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 const (
@@ -512,7 +512,7 @@ func runPipeline(ctx context.Context, deps runner.Deps, paths []string, control 
 	return runOutcome{
 		err:     err,
 		report:  report,
-		digest:  readOptionalFile(filepath.Join(outDir, "digest.md")),
+		digest:  readOptionalFile(filepath.Join(outDir, "mono.md")),
 		post:    readOptionalFile(filepath.Join(outDir, "post.txt")),
 		email:   readOptionalFile(filepath.Join(outDir, "email.txt")),
 		html:    readOptionalFile(filepath.Join(outDir, "email_preview.html")),
@@ -560,7 +560,7 @@ func bannedFragments(ban []string, got runOutcome) []Failure {
 		name string
 		body string
 	}{
-		{"digest.md", got.digest},
+		{"mono.md", got.digest},
 		{"post.txt", got.post},
 		{"email.txt", got.email},
 		{"email_preview.html", got.html},
@@ -584,7 +584,7 @@ func foreignContacts(allow map[string]bool, got runOutcome) []Failure {
 		name string
 		body string
 	}{
-		{"digest.md", got.digest},
+		{"mono.md", got.digest},
 		{"post.txt", got.post},
 		{"email.txt", got.email},
 		{"email_preview.html", got.html},

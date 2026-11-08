@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/verify"
+	"mono/internal/domain"
+	"mono/internal/llm"
+	"mono/internal/verify"
 )
 
 // CaseName identifies one eval fixture group.

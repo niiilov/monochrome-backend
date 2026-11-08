@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func parseAPI(src Source, body []byte) ([]domain.Article, error) {

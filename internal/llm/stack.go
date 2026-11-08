@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 // New builds the production client from cfg.

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // Journal is a thread-safe accumulator. One ID keeps one row, in the order of the first Add or Set.

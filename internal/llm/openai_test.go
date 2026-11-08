@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 func TestChatCompletionsURL(t *testing.T) {

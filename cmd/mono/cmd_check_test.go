@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/render"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/journal"
+	"mono/internal/render"
+	"mono/internal/timeutil"
 )
 
 func TestCheckHelpAndUnknown(t *testing.T) {
@@ -78,7 +78,7 @@ func TestCheckRunsOrganizerScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := "import sys\nsys.stderr.write('organizer-fail')\nsys.exit(1)\n"
-	if err := os.WriteFile(filepath.Join(root, "tools", "check_digest.py"), []byte(script), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "tools", "check_mono.py"), []byte(script), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	wd, err := os.Getwd()
@@ -121,7 +121,7 @@ func writeOut(t *testing.T, root string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "digest.md"), []byte(render.Digest(model)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mono.md"), []byte(render.Digest(model)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	j := journal.New()

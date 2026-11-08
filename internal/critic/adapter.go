@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/verify"
+	"mono/internal/domain"
+	"mono/internal/llm"
+	"mono/internal/verify"
 )
 
 // GateCritic adapts Check to verify.Critic.

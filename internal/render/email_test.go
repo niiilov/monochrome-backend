@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/textutil"
+	"mono/internal/textutil"
 )
 
 func TestEmailUsesDigest(t *testing.T) {

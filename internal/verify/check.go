@@ -1,8 +1,8 @@
 package verify
 
 import (
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/render"
+	"mono/internal/domain"
+	"mono/internal/render"
 )
 
 // Check runs every deterministic rule.

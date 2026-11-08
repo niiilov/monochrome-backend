@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
 )
 
 func TestCompleteJSONInvalidThenOK(t *testing.T) {

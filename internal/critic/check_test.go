@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/timeutil"
-	"cyberdigest/internal/verify"
+	"mono/internal/domain"
+	"mono/internal/llm/mock"
+	"mono/internal/prompts"
+	"mono/internal/timeutil"
+	"mono/internal/verify"
 )
 
 func TestCheckSupportedAndUnsupported(t *testing.T) {

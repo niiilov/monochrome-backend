@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 const (
@@ -225,7 +225,7 @@ func (m *Mailer) senderAddress(dry bool) (string, error) {
 	raw := strings.TrimSpace(m.cfg.From)
 	if raw == "" {
 		if dry {
-			return "digest@localhost", nil
+			return "mono@localhost", nil
 		}
 		return "", &RejectError{Status: http.StatusBadRequest, Message: "не задан адрес отправителя SMTP_FROM"}
 	}

@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"cyberdigest/internal/api"
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/mailer"
-	"cyberdigest/internal/runner"
-	"cyberdigest/internal/runner/fake"
+	"mono/internal/api"
+	"mono/internal/config"
+	"mono/internal/mailer"
+	"mono/internal/runner"
+	"mono/internal/runner/fake"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 }
 
 func run(args []string) error {
-	fs := flag.NewFlagSet("digestd", flag.ContinueOnError)
+	fs := flag.NewFlagSet("monod", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	fakeMode := fs.Bool("fake", false, "подготовленный прогон без модели")
 	mockMode := fs.Bool("mock", false, "реальный раннер с локальной моделью, без сети")
@@ -53,7 +53,7 @@ func run(args []string) error {
 	}
 	var pipeline runner.Runner
 	if *fakeMode {
-		if _, err := os.Stat(filepath.Join(*fixture, "digest.md")); err != nil {
+		if _, err := os.Stat(filepath.Join(*fixture, "mono.md")); err != nil {
 			return fmt.Errorf("подготовленный прогон %s: %w", *fixture, err)
 		}
 		replay := fake.New(*fixture)

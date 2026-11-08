@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 var cveRE = regexp.MustCompile(`(?i)\bCVE-\d{4}-\d{4,7}\b`)

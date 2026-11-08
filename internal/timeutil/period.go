@@ -3,8 +3,8 @@ package timeutil
 import (
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 // NewPeriod is the half-open window (control-24h, control] in MSK.

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 func TestRunCopiesFixtureAndReportsStages(t *testing.T) {
@@ -43,7 +43,7 @@ func TestRunCopiesFixtureAndReportsStages(t *testing.T) {
 	if strings.Join(state.Params.ExtraPaths, ",") != "extra.json" {
 		t.Fatalf("extras %+v", state.Params.ExtraPaths)
 	}
-	if report.Counts.Events != 1 || report.ArtifactHashes["digest.md"] == "" {
+	if report.Counts.Events != 1 || report.ArtifactHashes["mono.md"] == "" {
 		t.Fatalf("report %+v", report)
 	}
 	for _, name := range artifactNames {
@@ -55,7 +55,7 @@ func TestRunCopiesFixtureAndReportsStages(t *testing.T) {
 			t.Fatalf("%s contains a long dash", name)
 		}
 	}
-	digest, err := os.ReadFile(filepath.Join(dir, "digest.md"))
+	digest, err := os.ReadFile(filepath.Join(dir, "mono.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestRunRequiresOutputDir(t *testing.T) {
 func fixtureDir(t *testing.T) string {
 	t.Helper()
 	dir := filepath.Join("..", "..", "..", "testdata", "fake_run")
-	if _, err := os.Stat(filepath.Join(dir, "digest.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "mono.md")); err != nil {
 		t.Fatal(err)
 	}
 	return dir

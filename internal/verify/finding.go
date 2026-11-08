@@ -3,7 +3,7 @@ package verify
 import (
 	"strings"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 const (

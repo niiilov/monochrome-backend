@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 type fixedClient struct {

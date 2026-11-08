@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/critic"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/config"
+	"mono/internal/critic"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
 )
 
 func init() {
@@ -24,7 +24,7 @@ func runEvalCritic(ctx context.Context, args []string) int {
 		return code
 	}
 	if opts.help {
-		fmt.Println("Использование: digest eval-critic [--out docs] [--config config.yaml] [--mock|--live]")
+		fmt.Println("Использование: mono eval-critic [--out docs] [--config config.yaml] [--mock|--live]")
 		fmt.Println("Сравнивает прогон с критиком и без него на учебном пересказе и на синтетике с подсаженными ошибками.")
 		fmt.Println("Пишет docs/critic_eval.json и docs/critic_eval.md (каталог задаётся --out).")
 		fmt.Println("По умолчанию используется --mock без сети.")

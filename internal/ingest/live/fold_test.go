@@ -8,9 +8,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/normalize"
+	"mono/internal/config"
+	"mono/internal/ingest"
+	"mono/internal/normalize"
 )
 
 func TestFoldKeepsHeadAndTail(t *testing.T) {

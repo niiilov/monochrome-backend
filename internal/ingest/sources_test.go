@@ -3,7 +3,7 @@ package ingest
 import (
 	"testing"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func TestSourceKindOf(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 func TestNewPeriodAndBoundaries(t *testing.T) {

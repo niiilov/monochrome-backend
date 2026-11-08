@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/llm/mock"
 )
 
 func TestGateCleanDoesNotCallModel(t *testing.T) {

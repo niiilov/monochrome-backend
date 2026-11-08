@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/textutil"
+	"mono/internal/textutil"
 )
 
 // NoDataNote is the mark stored when a criterion has no support in the articles.

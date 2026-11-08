@@ -7,8 +7,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/render"
+	"mono/internal/domain"
+	"mono/internal/render"
 )
 
 // JournalExpect is one expected journal row.
@@ -24,7 +24,7 @@ type JournalExpect struct {
 	RequireFlags   []string `yaml:"require_flags"`
 }
 
-// DigestExpect lists substrings of digest.md.
+// DigestExpect lists substrings of mono.md.
 // Every MustContain item must appear. Every MustNotContain item must be absent.
 // Each MustContainAny group needs at least one of its variants.
 type DigestExpect struct {

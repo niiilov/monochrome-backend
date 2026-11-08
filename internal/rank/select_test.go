@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
+	"mono/internal/domain"
+	"mono/internal/journal"
 )
 
 func TestSelectOrdersByTotalSourcesDateAndID(t *testing.T) {

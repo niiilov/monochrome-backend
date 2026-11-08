@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/prompts"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/llm"
+	"mono/internal/prompts"
 )
 
 const itemSchemaJSON = `{"type":"object","additionalProperties":false,"required":["title","essence","consequences","hedge_note"],"properties":{"title":{"type":"string"},"essence":{"type":"string"},"consequences":{"type":"string"},"hedge_note":{"type":"string"}}}`

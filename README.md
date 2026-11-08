@@ -1,4 +1,4 @@
-# cyber-digest
+# mono
 
 ИИ-сервис подготовки новостного дайджеста по кибербезопасности (бэкенд на Go, хакатон ИТ-Фест).
 
@@ -9,24 +9,24 @@ cp .env.example .env   # заполните LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 # Для стабильного прогона оставьте LLM_PROXY и LLM_PROXY_FILE пустыми
 
 make build
-./bin/digest run \
+./bin/mono run \
   --dataset testdata/train/publications.json \
   --control-time "2026-11-07T12:00:00+03:00" \
   --out ./out
 
-python tools/check_digest.py ./out
-./bin/digest check --out ./out
+python tools/check_mono.py ./out
+./bin/mono check --out ./out
 ```
 
-Без ключа: `./bin/digest run ... --mock`.
+Без ключа: `./bin/mono run ... --mock`.
 
-HTTP/UI: `./bin/digestd` (см. `cmd/digestd`).
+HTTP API: `./bin/monod` (см. `cmd/monod`).
 
 Обязательные сценарии:
 
 ```bash
-./bin/digest test-mandatory          # mock
-./bin/digest test-mandatory --live   # живая модель, пишет out/tests_report.*
+./bin/mono test-mandatory          # mock
+./bin/mono test-mandatory --live   # живая модель, пишет out/tests_report.*
 ```
 
 ## Контрольный прогон одной строкой
@@ -35,7 +35,7 @@ HTTP/UI: `./bin/digestd` (см. `cmd/digestd`).
 LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.json "2026-11-07T12:00:00+03:00"
 ```
 
-Скрипт запускает `digest run`, `digest check`, `tools/check_digest.py` и собирает файлы в `submission/`.
+Скрипт запускает `mono run`, `mono check`, `tools/check_mono.py` и собирает файлы в `submission/`.
 
 ## Переменные окружения
 
@@ -52,21 +52,21 @@ LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.
 ## Инструменты
 
 - Go 1.22+ (в среде разработки может быть новее)
-- `make` (build, test, vet, status, check)
-- Python 3 для `tools/check_digest.py`
+- `make` (build, test, vet, check)
+- Python 3 для `tools/check_mono.py`
 - Опционально: Docker, gitleaks (`scripts/check_secrets.sh`)
 
 ## Структура
 
 ```
-cmd/digest/          # CLI: run, check, test-mandatory, llm-ping
-cmd/digestd/         # HTTP API + веб
+cmd/mono/          # CLI: run, check, test-mandatory, llm-ping
+cmd/monod/         # HTTP API
 internal/            # domain, ingest, topic, extract, cluster, rank,
                      # summarize, render, verify, llm, guard, runner, api, ...
 prompts/             # шаблоны промптов (*.tmpl)
 testdata/train/      # учебный набор организаторов
 testdata/mandatory/  # T1-T8
-tools/check_digest.py
+tools/check_mono.py
 scripts/control_run.sh
 docs/TZ.md docs/PRD.md docs/AI_DESCRIPTION.md docs/EVAL_texts.md
 ```

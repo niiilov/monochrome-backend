@@ -7,7 +7,7 @@ import (
 	"html"
 	"strings"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 // offlineClient is a deterministic stand-in for the model.
@@ -15,7 +15,7 @@ import (
 // so later stages can keep them. It does not open the network.
 type offlineClient struct{}
 
-// NewOfflineClient returns the client used by `digest run --mock`.
+// NewOfflineClient returns the client used by `mono run --mock`.
 func NewOfflineClient() llm.Client {
 	return offlineClient{}
 }

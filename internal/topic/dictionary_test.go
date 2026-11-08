@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func TestStemWordForms(t *testing.T) {

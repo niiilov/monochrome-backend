@@ -12,6 +12,6 @@ func init() {
 }
 
 func runVersion(ctx context.Context, args []string) int {
-	fmt.Printf("cyberdigest %s\n", version)
+	fmt.Printf("mono %s\n", version)
 	return 0
 }

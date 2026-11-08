@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func TestWriteCSVColumnsOrderAndStatuses(t *testing.T) {

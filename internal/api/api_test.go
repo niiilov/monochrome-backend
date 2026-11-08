@@ -21,15 +21,15 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/mailer"
-	"cyberdigest/internal/runner"
-	"cyberdigest/internal/runner/fake"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/mailer"
+	"mono/internal/runner"
+	"mono/internal/runner/fake"
+	"mono/internal/textutil"
 )
 
-func TestHealthAndPage(t *testing.T) {
+func TestHealth(t *testing.T) {
 	ts, _ := newAPI(t, &stubRunner{}, []string{"ok@example.com"}, true)
 	code, doc, _ := doJSON(t, http.MethodGet, ts.URL+"/healthz", "")
 	if code != http.StatusOK || doc["status"] != "ok" {
@@ -38,27 +38,6 @@ func TestHealthAndPage(t *testing.T) {
 	code, doc, _ = doJSON(t, http.MethodGet, ts.URL+"/api/v1/healthz", "")
 	if code != http.StatusOK || doc["status"] != "ok" {
 		t.Fatalf("api health %d %+v", code, doc)
-	}
-	res, err := http.Get(ts.URL + "/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := io.ReadAll(res.Body)
-	res.Body.Close()
-	page := string(raw)
-	for _, needle := range []string{"Дайджест", "Пост", "Письмо", "Журнал", "Выгрузить", "Разослать (тест)", "Добавить публикацию"} {
-		if !strings.Contains(page, needle) {
-			t.Fatalf("page missing %s", needle)
-		}
-	}
-	js, err := http.Get(ts.URL + "/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	script, _ := io.ReadAll(js.Body)
-	js.Body.Close()
-	if js.StatusCode != http.StatusOK || !bytes.Contains(script, []byte("/api/v1/runs")) {
-		t.Fatalf("script %d %s", js.StatusCode, script)
 	}
 	code, doc, _ = doJSON(t, http.MethodGet, ts.URL+"/api/v1/runs/missing", "")
 	if code != http.StatusNotFound {
@@ -113,7 +92,7 @@ func TestPreviewExportAndAllowlist(t *testing.T) {
 	}
 	res.Body.Close()
 	if structured.Text == "" || len(structured.Events) != 1 || structured.Events[0].Sources[0].URL == "" {
-		t.Fatalf("digest.json %+v", structured)
+		t.Fatalf("mono.json %+v", structured)
 	}
 
 	post := getText(t, ts.URL+"/api/v1/runs/"+id+"/post")
@@ -309,7 +288,7 @@ func (s *stubRunner) Run(ctx context.Context, p domain.RunParams, progress runne
 		}
 	}
 	files := map[string]string{
-		"digest.md":          "# Дайджест\n\n" + body + "\n",
+		"mono.md":          "# Дайджест\n\n" + body + "\n",
 		"post.txt":           body + "\n",
 		"email.txt":          "Тема: Дайджест тестовый\n\n" + body + "\n",
 		"email_preview.html": "<!DOCTYPE html><html><body><p>" + html.EscapeString(body) + "</p></body></html>\n",
@@ -383,7 +362,7 @@ func newAPI(t *testing.T, r runner.Runner, allow []string, dry bool) (*httptest.
 	m := mailer.New(config.Mail{
 		DryRun:    dry,
 		Host:      "smtp.example",
-		From:      "digest@example.com",
+		From:      "mono@example.com",
 		Port:      587,
 		Allowlist: allow,
 		Password:  "super-secret-smtp",

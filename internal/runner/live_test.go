@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest/live"
-	"cyberdigest/internal/llm"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest/live"
+	"mono/internal/llm"
 )
 
 func TestLiveFixturesProduceEvents(t *testing.T) {
@@ -74,7 +74,7 @@ func TestLiveFixturesProduceEvents(t *testing.T) {
 	if liveIn == 0 {
 		t.Fatal("ни одна живая запись не вошла в событие")
 	}
-	digest, err := os.ReadFile(filepath.Join(out, "digest.md"))
+	digest, err := os.ReadFile(filepath.Join(out, "mono.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

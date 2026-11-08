@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/llm"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 const postSchemaJSON = `{"type":"object","additionalProperties":false,"required":["items"],"properties":{"items":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["n","title","text"],"properties":{"n":{"type":"integer"},"title":{"type":"string"},"text":{"type":"string"}}}}}}`

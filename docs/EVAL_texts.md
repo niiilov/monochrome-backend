@@ -4,7 +4,7 @@
 Прогон без прокси (`LLM_PROXY` и `LLM_PROXY_FILE` пустые). Выходные файлы вручную не правились.
 
 Опорные каталоги: `out/train3`, финальный `submission/` после `scripts/control_run.sh`.
-Промпт `write_digest_item` версии 4. `digest test-mandatory --live`: 8/8 и 20/20.
+Промпт `write_digest_item` версии 4. `mono test-mandatory --live`: 8/8 и 20/20.
 
 ## Замечания из docs/EVAL.md (Для B)
 
@@ -16,7 +16,7 @@
 
 ## Что совпало
 
-- `python tools/check_digest.py ./out/train3` -> `формат в порядке`.
+- `python tools/check_mono.py ./out/train3` -> `формат в порядке`.
 - В выпуске 5 событий; ID и URL совпадают с набором: pub-008/006/007, pub-001/002/003, pub-037, pub-027, pub-012/013.
 - Ключевые числа на месте: 210 000, 8 500, 126, 90 Гбит/с, 5 компаний, 1 час 40 минут.
 - Даты периода и контрольного времени в заголовке верные.

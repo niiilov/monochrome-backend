@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // Select orders events and marks at most limit of them as selected.

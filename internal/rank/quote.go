@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // locateQuote returns the exact slice of article that matches quote after

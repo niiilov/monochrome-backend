@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/textutil"
+	"mono/internal/summarize"
+	"mono/internal/textutil"
 )
 
 func TestPostGoldenOrderAndURLs(t *testing.T) {

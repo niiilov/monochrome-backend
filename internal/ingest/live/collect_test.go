@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 func TestFixturesOffline(t *testing.T) {
@@ -105,7 +105,7 @@ func TestRobotsRetryCacheAndAgent(t *testing.T) {
 	}
 	cfg := config.Default().Live
 	cfg.SourcesFile = sources
-	cfg.UserAgent = "cyberdigest/0.1"
+	cfg.UserAgent = "mono/0.1"
 	cfg.MaxRetries = 2
 	cfg.RespectRobots = true
 	cfg.CacheDir = filepath.Join(dir, "cache")
@@ -114,7 +114,7 @@ func TestRobotsRetryCacheAndAgent(t *testing.T) {
 	if len(first.Articles) != 1 || first.Articles[0].Source != "Open" {
 		t.Fatalf("articles %+v journal %+v", first.Articles, first.Journal)
 	}
-	if agent != "cyberdigest/0.1" {
+	if agent != "mono/0.1" {
 		t.Fatalf("user-agent %q", agent)
 	}
 	var denied bool
@@ -197,8 +197,8 @@ func TestMergeKeepsDatasetID(t *testing.T) {
 }
 
 func TestRobotsParser(t *testing.T) {
-	body := []byte("User-agent: *\nDisallow: /secret\nAllow: /secret/ok\n\nUser-agent: cyberdigest\nAllow: /\n")
-	if !robotsAllow(body, "cyberdigest/0.1", "/secret/news") {
+	body := []byte("User-agent: *\nDisallow: /secret\nAllow: /secret/ok\n\nUser-agent: mono\nAllow: /\n")
+	if !robotsAllow(body, "mono/0.1", "/secret/news") {
 		t.Fatal("свой агент должен быть разрешен")
 	}
 	star := []byte("User-agent: *\nDisallow: /secret\nAllow: /secret/ok\n")
@@ -208,7 +208,7 @@ func TestRobotsParser(t *testing.T) {
 	if !robotsAllow(star, "other/1", "/secret/ok") {
 		t.Fatal("более длинный Allow должен победить")
 	}
-	if !robotsAllow(nil, "cyberdigest/0.1", "/any") {
+	if !robotsAllow(nil, "mono/0.1", "/any") {
 		t.Fatal("пустой robots разрешает")
 	}
 }

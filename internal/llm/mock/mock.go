@@ -28,7 +28,7 @@ import (
 	"strings"
 	"sync"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 // Client is safe for concurrent Complete calls.

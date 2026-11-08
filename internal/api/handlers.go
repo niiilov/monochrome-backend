@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/mailer"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/mailer"
+	"mono/internal/timeutil"
 )
 
 type inputError struct {
@@ -93,10 +93,10 @@ func (s *Server) digest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if wantsJSON(r) && !strings.Contains(r.Header.Get("Accept"), "text/markdown") {
-		s.serveFile(w, dir, "digest.json", "application/json; charset=utf-8")
+		s.serveFile(w, dir, "mono.json", "application/json; charset=utf-8")
 		return
 	}
-	s.serveFile(w, dir, "digest.md", "text/markdown; charset=utf-8")
+	s.serveFile(w, dir, "mono.md", "text/markdown; charset=utf-8")
 }
 
 func (s *Server) post(w http.ResponseWriter, r *http.Request) {

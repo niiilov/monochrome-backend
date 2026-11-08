@@ -118,7 +118,7 @@ type Live struct {
 	RespectRobots bool   `yaml:"respect_robots"`
 }
 
-// Server is the HTTP listen address. DIGEST_ADDR overrides Addr.
+// Server is the HTTP listen address. MONO_ADDR overrides Addr.
 type Server struct {
 	Addr string `yaml:"addr"`
 }
@@ -163,7 +163,7 @@ func Default() Config {
 			SourcesFile:   "sources.yaml",
 			TimeoutSec:    20,
 			MaxRetries:    2,
-			UserAgent:     "cyberdigest/0.1",
+			UserAgent:     "mono/0.1",
 			RespectRobots: true,
 		},
 		Server: Server{Addr: ":8080"},
@@ -202,7 +202,7 @@ func (c *Config) applyEnv() error {
 	set("SMTP_USER", &c.Mail.User)
 	set("SMTP_PASSWORD", &c.Mail.Password)
 	set("SMTP_FROM", &c.Mail.From)
-	set("DIGEST_ADDR", &c.Server.Addr)
+	set("MONO_ADDR", &c.Server.Addr)
 	if v := strings.TrimSpace(os.Getenv("SMTP_PORT")); v != "" {
 		port, err := strconv.Atoi(v)
 		if err != nil {

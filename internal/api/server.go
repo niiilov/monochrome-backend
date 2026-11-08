@@ -14,11 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/mailer"
-	"cyberdigest/internal/runner"
-	"cyberdigest/internal/timeutil"
-	"cyberdigest/web"
+	"mono/internal/domain"
+	"mono/internal/mailer"
+	"mono/internal/runner"
+	"mono/internal/timeutil"
 )
 
 const (
@@ -29,7 +28,7 @@ const (
 	maxUpload = 8 << 20
 )
 
-// Server is the HTTP API. The runner is injected so tests and cmd/digestd can swap it.
+// Server is the HTTP API. The runner is injected so tests and cmd/monod can swap it.
 type Server struct {
 	runner  runner.Runner
 	mail    *mailer.Mailer
@@ -110,7 +109,7 @@ func New(r runner.Runner, m *mailer.Mailer, runsDir string, log *slog.Logger) *S
 	return s
 }
 
-// Handler is the API plus the embedded page.
+// Handler is the HTTP API.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
@@ -125,10 +124,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{id}/export", s.export)
 	mux.HandleFunc("POST /api/v1/runs/{id}/send", s.send)
 	mux.HandleFunc("POST /api/v1/runs/{id}/articles", s.articles)
-	page := web.Handler()
-	mux.Handle("GET /{$}", page)
-	mux.Handle("GET /index.html", page)
-	mux.Handle("GET /app.js", page)
 	return mux
 }
 

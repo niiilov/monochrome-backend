@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"strings"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // Subject is the email subject with the Moscow period.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/llm"
+	"mono/internal/config"
+	"mono/internal/llm"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func runLLMPing(ctx context.Context, args []string) int {
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-h", "--help":
-			fmt.Println("Использование: digest llm-ping [-config config.yaml]")
+			fmt.Println("Использование: mono llm-ping [-config config.yaml]")
 			return 0
 		case "-config", "--config":
 			if i+1 >= len(args) {

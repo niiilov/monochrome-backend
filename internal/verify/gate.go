@@ -5,11 +5,11 @@ import (
 	"regexp"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/render"
-	"cyberdigest/internal/summarize"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/llm"
+	"mono/internal/render"
+	"mono/internal/summarize"
 )
 
 var hrefRE = regexp.MustCompile(`(?i)href\s*=\s*"([^"]*)"`)

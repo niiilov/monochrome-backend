@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 func TestQueueOrderAndStickyTail(t *testing.T) {

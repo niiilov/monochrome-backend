@@ -1,4 +1,4 @@
-module cyberdigest
+module mono
 
 go 1.23.0
 

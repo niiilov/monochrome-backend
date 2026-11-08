@@ -8,7 +8,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func parseHTML(src Source, body []byte) ([]domain.Article, error) {

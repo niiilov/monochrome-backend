@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 func TestPromptsRender(t *testing.T) {

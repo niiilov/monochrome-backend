@@ -3,9 +3,9 @@ package verify
 import (
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/summarize"
+	"mono/internal/textutil"
 )
 
 const noRationale = "Обоснование отбора в данных события не приведено."
@@ -15,7 +15,7 @@ const noRationale = "Обоснование отбора в данных соб�
 func templateShorts(m domain.DigestModel) []summarize.ShortItem {
 	out := make([]summarize.ShortItem, 0, len(m.Items))
 	for i, item := range m.Items {
-		// Ranking rationale stays in digest.md; the post only needs facts.
+		// Ranking rationale stays in mono.md; the post only needs facts.
 		essence := strings.TrimSpace(item.Essence)
 		parts := []string{essence}
 		if consequences := strings.TrimSpace(item.Consequences); consequences != "" && consequences != summarize.NoConsequences {

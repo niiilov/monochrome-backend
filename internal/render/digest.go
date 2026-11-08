@@ -5,12 +5,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/summarize"
+	"mono/internal/textutil"
 )
 
-// Digest renders digest.md.
+// Digest renders mono.md.
 // Text over DigestLimit is shortened: extra rationale and essence sentences go first.
 // Source lines and the facts at the start of a field stay.
 func Digest(m domain.DigestModel) string {

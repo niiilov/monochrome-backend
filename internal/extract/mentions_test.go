@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/journal"
+	"mono/internal/llm/mock"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 func TestEnoughText(t *testing.T) {

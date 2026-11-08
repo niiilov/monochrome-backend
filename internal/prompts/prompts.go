@@ -12,7 +12,7 @@ import (
 	"sync"
 	"text/template"
 
-	promptfs "cyberdigest/prompts"
+	promptfs "mono/prompts"
 )
 
 const commonName = "common_rules"

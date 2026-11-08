@@ -6,7 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // sourceSite is one outlet from case appendix 1, plus regulators organizers may add.

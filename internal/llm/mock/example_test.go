@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 func ExampleClient_When() {

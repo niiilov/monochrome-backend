@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 func TestCheckAcceptsHandBuiltOutput(t *testing.T) {
@@ -185,7 +185,7 @@ func writeRun(t *testing.T, exp Expected, opts runOpts) string {
 		digest = padRunes(digest, opts.digestRunes)
 	}
 	if !opts.skipDigest {
-		writeFile(t, dir, "digest.md", digest, opts.bom)
+		writeFile(t, dir, "mono.md", digest, opts.bom)
 	}
 	post := siblingText(exp, digest)
 	if opts.postRunes > 0 {

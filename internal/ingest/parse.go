@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 var wrapKeys = []string{

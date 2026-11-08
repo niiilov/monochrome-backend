@@ -8,10 +8,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"cyberdigest/internal/render"
+	"mono/internal/render"
 )
 
-// CheckFormat is the built-in stand-in for the organizers' check_digest.py.
+// CheckFormat is the built-in stand-in for the organizers' check_mono.py.
 // digestMD must follow section 6.1. journalCSV is UTF-8 without a BOM and
 // uses the header id,status,group,reason,error.
 func CheckFormat(digestMD, journalCSV string) error {

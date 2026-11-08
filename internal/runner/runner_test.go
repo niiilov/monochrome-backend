@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/normalize"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/verify"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest"
+	"mono/internal/journal"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
+	"mono/internal/normalize"
+	"mono/internal/prompts"
+	"mono/internal/verify"
 )
 
 func TestMain(m *testing.M) {
@@ -254,7 +254,7 @@ func assertOutputs(t *testing.T, out string, state *domain.RunState) {
 			t.Fatalf("нет файла %s: %v", name, err)
 		}
 	}
-	digest, err := os.ReadFile(filepath.Join(out, "digest.md"))
+	digest, err := os.ReadFile(filepath.Join(out, "mono.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,8 +286,8 @@ func assertOutputs(t *testing.T, out string, state *domain.RunState) {
 		t.Fatal(err)
 	}
 	sum := sha256Hex(digest)
-	if report.ArtifactHashes["digest.md"] != sum {
-		t.Fatalf("хэш digest.md %q, в отчёте %q", sum, report.ArtifactHashes["digest.md"])
+	if report.ArtifactHashes["mono.md"] != sum {
+		t.Fatalf("хэш mono.md %q, в отчёте %q", sum, report.ArtifactHashes["mono.md"])
 	}
 }
 
@@ -438,7 +438,7 @@ func repoRoot(t *testing.T) string {
 }
 
 var outputNames = []string{
-	"digest.md",
+	"mono.md",
 	"post.txt",
 	"email_preview.html",
 	"email.txt",

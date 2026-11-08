@@ -6,8 +6,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 func foldWS(s string) string {

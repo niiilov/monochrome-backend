@@ -3,9 +3,9 @@ package critic
 import (
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/summarize"
+	"mono/internal/timeutil"
 )
 
 const (

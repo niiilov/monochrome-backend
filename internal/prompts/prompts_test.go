@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/textutil"
-	promptfs "cyberdigest/prompts"
+	"mono/internal/textutil"
+	promptfs "mono/prompts"
 )
 
 func TestRenderCommonRules(t *testing.T) {

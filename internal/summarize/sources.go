@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/timeutil"
 )
 
 const dateUnknown = "дата не указана"

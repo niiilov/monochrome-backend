@@ -9,8 +9,8 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/textutil"
 )
 
 func TestSyntheticIDs(t *testing.T) {

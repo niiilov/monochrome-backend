@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 const (

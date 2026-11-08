@@ -1,5 +1,5 @@
 // Package fake is a runner.Runner that replays testdata/fake_run.
-// cmd/digestd uses it with --fake. Without that flag the server calls runner.New.
+// cmd/monod uses it with --fake. Without that flag the server calls runner.New.
 package fake
 
 import (
@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/runner"
+	"mono/internal/domain"
+	"mono/internal/runner"
 )
 
 // Stages are the pipeline steps the real runner reports, plus the final write.
@@ -26,8 +26,8 @@ var Stages = []string{
 
 // artifactNames are the prepared files copied into OutDir.
 var artifactNames = []string{
-	"digest.md",
-	"digest.json",
+	"mono.md",
+	"mono.json",
 	"post.txt",
 	"email.txt",
 	"email_preview.html",
@@ -105,13 +105,13 @@ func (r *Runner) walk(ctx context.Context, progress runner.ProgressFunc) error {
 
 func readState(dir string) (*domain.RunState, domain.RunReport, error) {
 	var doc digestFile
-	if err := readJSON(filepath.Join(dir, "digest.json"), &doc); err != nil {
+	if err := readJSON(filepath.Join(dir, "mono.json"), &doc); err != nil {
 		return nil, domain.RunReport{}, err
 	}
 	if strings.TrimSpace(doc.Text) == "" {
-		raw, err := os.ReadFile(filepath.Join(dir, "digest.md"))
+		raw, err := os.ReadFile(filepath.Join(dir, "mono.md"))
 		if err != nil {
-			return nil, domain.RunReport{}, fmt.Errorf("чтение digest.md: %w", err)
+			return nil, domain.RunReport{}, fmt.Errorf("чтение mono.md: %w", err)
 		}
 		doc.Text = string(raw)
 	}

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/domain"
+	"mono/internal/llm/mock"
 )
 
 func TestGateCriticDisabledDoesNotCall(t *testing.T) {

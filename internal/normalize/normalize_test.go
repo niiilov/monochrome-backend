@@ -7,9 +7,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest"
 )
 
 func TestCleanHTMLWhitespaceAndControls(t *testing.T) {

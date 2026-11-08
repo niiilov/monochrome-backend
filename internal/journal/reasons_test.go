@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/timeutil"
 )
 
 func TestReasonTemplates(t *testing.T) {

@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/extract"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/extract"
+	"mono/internal/journal"
+	"mono/internal/llm/mock"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 func TestRepeatBecomesOneEvent(t *testing.T) {

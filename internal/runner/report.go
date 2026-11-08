@@ -13,9 +13,9 @@ import (
 	"sort"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/journal"
 )
 
 type texts struct {
@@ -48,7 +48,7 @@ func writeRun(outDir string, rows []domain.JournalEntry, report *domain.RunRepor
 		name string
 		body []byte
 	}{
-		{"digest.md", []byte(rendered.digest)},
+		{"mono.md", []byte(rendered.digest)},
 		{"post.txt", []byte(rendered.post)},
 		{"email_preview.html", []byte(rendered.html)},
 		{"email.txt", []byte(rendered.email)},

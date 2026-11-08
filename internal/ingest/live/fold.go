@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/normalize"
+	"mono/internal/normalize"
 )
 
 // FoldParts splits a long article with normalize.Chunks and keeps a short extract of every part.

@@ -18,10 +18,10 @@ import (
 
 	"golang.org/x/text/encoding/charmap"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/normalize"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest"
+	"mono/internal/normalize"
 )
 
 const (
@@ -127,7 +127,7 @@ func Merge(articles []domain.Article, rows []domain.JournalEntry, got Result) ([
 
 func (c Collector) prepare() Collector {
 	if strings.TrimSpace(c.Config.UserAgent) == "" {
-		c.Config.UserAgent = "cyberdigest/0.1"
+		c.Config.UserAgent = "mono/0.1"
 	}
 	if c.Config.TimeoutSec <= 0 {
 		c.Config.TimeoutSec = 20

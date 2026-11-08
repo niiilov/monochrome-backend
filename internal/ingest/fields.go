@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 // aliasList is used when the configured column is absent.

@@ -37,9 +37,9 @@ func Dispatch(ctx context.Context, args []string) int {
 }
 
 func printHelp() {
-	fmt.Println("digest - подготовка новостного дайджеста по кибербезопасности")
+	fmt.Println("mono - подготовка новостного дайджеста по кибербезопасности")
 	fmt.Println()
-	fmt.Println("Использование: digest <команда> [аргументы]")
+	fmt.Println("Использование: mono <команда> [аргументы]")
 	fmt.Println()
 	fmt.Println("Команды:")
 	list := append([]command(nil), commands...)

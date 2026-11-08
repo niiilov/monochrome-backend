@@ -5,7 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"cyberdigest/internal/textutil"
+	"mono/internal/textutil"
 )
 
 const (

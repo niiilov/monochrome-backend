@@ -17,7 +17,7 @@ func TestLoadDefaultsAndEnv(t *testing.T) {
 	t.Setenv("LLM_API_KEY", "test-key")
 	t.Setenv("SMTP_PORT", "2525")
 	t.Setenv("ALLOWED_TEST_RECIPIENTS", " a@example.com, b@example.com ")
-	t.Setenv("DIGEST_ADDR", "127.0.0.1:9090")
+	t.Setenv("MONO_ADDR", "127.0.0.1:9090")
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestRepoConfig(t *testing.T) {
 	for _, key := range []string{
 		"LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL",
 		"SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM",
-		"ALLOWED_TEST_RECIPIENTS", "DIGEST_ADDR",
+		"ALLOWED_TEST_RECIPIENTS", "MONO_ADDR",
 	} {
 		t.Setenv(key, "")
 	}

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/textutil"
 )
 
 const (
@@ -66,7 +66,7 @@ func Check(expected Expected, outDir string) Result {
 		res.Failures = append(res.Failures, Failure{Check: check, Message: msg})
 	}
 
-	digest := readOutput(outDir, "digest.md", true, fail)
+	digest := readOutput(outDir, "mono.md", true, fail)
 	post := readOutput(outDir, "post.txt", true, fail)
 	email := readOutput(outDir, "email.txt", true, fail)
 	html, htmlOK := readOptional(outDir, "email_preview.html", fail)
@@ -81,10 +81,10 @@ func Check(expected Expected, outDir string) Result {
 		enforceLimit("post.txt", post.body, expected.Limits.Post, fail)
 	}
 	if digest.ok {
-		enforceLimit("digest.md", digest.body, expected.Limits.Digest, fail)
+		enforceLimit("mono.md", digest.body, expected.Limits.Digest, fail)
 	}
 	checkContacts(expected, []namedBody{
-		{"digest.md", digest},
+		{"mono.md", digest},
 		{"post.txt", post},
 		{"email.txt", email},
 		{"email_preview.html", fileBody{ok: htmlOK, body: html}},
@@ -163,9 +163,9 @@ func checkDigest(expected Expected, digest string, fail func(string, string)) in
 
 func checkSubstrings(outDir string, expected Expected, digest, post, email fileBody, html string, htmlOK bool, fail func(string, string)) {
 	if digest.ok {
-		requireAll(digest.body, "digest.md", expected.Digest.MustContain, fail)
-		forbidAll(digest.body, "digest.md", expected.Digest.MustNotContain, fail)
-		requireAny(digest.body, "digest.md", expected.Digest.MustContainAny, fail)
+		requireAll(digest.body, "mono.md", expected.Digest.MustContain, fail)
+		forbidAll(digest.body, "mono.md", expected.Digest.MustNotContain, fail)
+		requireAny(digest.body, "mono.md", expected.Digest.MustContainAny, fail)
 	}
 	for _, item := range []namedBody{{"post.txt", post}, {"email.txt", email}} {
 		if !item.file.ok {
@@ -196,7 +196,7 @@ func checkSubstrings(outDir string, expected Expected, digest, post, email fileB
 
 func isStandardOutput(name string) bool {
 	switch name {
-	case "digest.md", "post.txt", "email.txt", "email_preview.html":
+	case "mono.md", "post.txt", "email.txt", "email_preview.html":
 		return true
 	default:
 		return false
@@ -205,7 +205,7 @@ func isStandardOutput(name string) bool {
 
 func readNamed(digest, post, email fileBody, html string, htmlOK bool, name string) (string, bool) {
 	switch name {
-	case "digest.md":
+	case "mono.md":
 		return digest.body, digest.ok
 	case "post.txt":
 		return post.body, post.ok

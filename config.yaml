@@ -57,7 +57,7 @@ live:
   sources_file: sources.yaml
   timeout_sec: 20
   max_retries: 2
-  user_agent: cyberdigest/0.1
+  user_agent: mono/0.1
   cache_dir: ""
   respect_robots: true
 server:

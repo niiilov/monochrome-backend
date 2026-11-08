@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // exportNames are the formal archive. Optional files are added when the runner wrote them.
 var exportRequired = []string{
-	"digest.json",
-	"digest.md",
+	"mono.json",
+	"mono.md",
 	"post.txt",
 	"email_preview.html",
 	"journal.csv",
@@ -45,7 +45,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"digest-"+id+".zip\"")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"mono-"+id+".zip\"")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(raw)
@@ -72,11 +72,11 @@ func finishFiles(dir, id string, state *domain.RunState, report *domain.RunRepor
 }
 
 func ensureDigestJSON(dir string, state *domain.RunState) error {
-	path := filepath.Join(dir, "digest.json")
+	path := filepath.Join(dir, "mono.json")
 	if info, err := os.Stat(path); err == nil && info.Size() > 0 {
 		return nil
 	}
-	text, _ := os.ReadFile(filepath.Join(dir, "digest.md"))
+	text, _ := os.ReadFile(filepath.Join(dir, "mono.md"))
 	doc := digestFile{Text: string(text), Events: []domain.DigestItem{}}
 	if state != nil {
 		doc.Period = state.Digest.Period

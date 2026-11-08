@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/extract"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/normalize"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/extract"
+	"mono/internal/guard"
+	"mono/internal/llm"
+	"mono/internal/normalize"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 const (

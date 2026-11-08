@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 func TestHardExpectationsLoad(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 type hedgeMarker struct {

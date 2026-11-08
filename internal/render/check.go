@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/textutil"
+	"mono/internal/textutil"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 	itemRE   = regexp.MustCompile(`(?m)^## (\d+)\. \S`)
 )
 
-// CheckFormat reports whether digest.md follows the stage format.
+// CheckFormat reports whether mono.md follows the stage format.
 // It checks the header, the event count, consecutive ## N. blocks and the four fields.
 func CheckFormat(digest string) error {
 	if strings.TrimSpace(digest) == "" {

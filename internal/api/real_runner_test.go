@@ -11,14 +11,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/normalize"
-	"cyberdigest/internal/runner"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/verify"
+	"mono/internal/config"
+	"mono/internal/ingest"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
+	"mono/internal/normalize"
+	"mono/internal/runner"
+	"mono/internal/textutil"
+	"mono/internal/verify"
 )
 
 func TestRealRunnerOnSynthetic(t *testing.T) {
@@ -65,11 +65,11 @@ func TestRealRunnerOnSynthetic(t *testing.T) {
 	}
 	structured := getJSON(t, ts.URL+"/api/v1/runs/"+id+"/digest")
 	if structured["text"] != digest {
-		t.Fatal("digest.json text отличается от digest.md")
+		t.Fatal("mono.json text отличается от mono.md")
 	}
 	events, _ := structured["events"].([]any)
 	if len(events) == 0 {
-		t.Fatalf("digest.json без событий: %+v", structured)
+		t.Fatalf("mono.json без событий: %+v", structured)
 	}
 	first, _ := events[0].(map[string]any)
 	sources, _ := first["sources"].([]any)
@@ -82,7 +82,7 @@ func TestRealRunnerOnSynthetic(t *testing.T) {
 	}
 	title, _ := first["title"].(string)
 	if title != "" && !strings.Contains(digest, title) {
-		t.Fatalf("заголовок %q нет в digest.md", title)
+		t.Fatalf("заголовок %q нет в mono.md", title)
 	}
 
 	report := getJSON(t, ts.URL+"/api/v1/runs/"+id+"/report")
@@ -90,7 +90,7 @@ func TestRealRunnerOnSynthetic(t *testing.T) {
 		t.Fatalf("run_id %+v", report["run_id"])
 	}
 	hashes, _ := report["artifact_hashes"].(map[string]any)
-	if hashes["digest.md"] == "" || hashes["journal.csv"] == "" || hashes["post.txt"] == "" {
+	if hashes["mono.md"] == "" || hashes["journal.csv"] == "" || hashes["post.txt"] == "" {
 		t.Fatalf("хэши %+v", report["artifact_hashes"])
 	}
 	if report["dataset_hash"] == "" || report["config_hash"] == "" || report["prompts_hash"] == "" {

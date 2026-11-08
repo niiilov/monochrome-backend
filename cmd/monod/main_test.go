@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 func TestFakeAndMockTogether(t *testing.T) {

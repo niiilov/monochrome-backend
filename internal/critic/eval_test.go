@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/config"
+	"mono/internal/llm"
+	"mono/internal/llm/mock"
 )
 
 func TestRunEvalMockReducesPlantedDiscrepancies(t *testing.T) {

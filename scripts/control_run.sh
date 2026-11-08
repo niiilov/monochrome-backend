@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Контрольный прогон: digest run + check + сбор submission/.
+# Контрольный прогон: mono run + check + сбор submission/.
 # Использование: scripts/control_run.sh <набор> <контрольное время>
 set -euo pipefail
 
@@ -19,22 +19,22 @@ SUB="${SUBMISSION_DIR:-submission}"
 
 mkdir -p "$OUT" "$SUB"
 
-echo ">> digest run"
+echo ">> mono run"
 # Пустые LLM_PROXY* в окружении не дадут подтянуть прокси из .env (см. loadDotEnv).
 LLM_PROXY="${LLM_PROXY-}" LLM_PROXY_FILE="${LLM_PROXY_FILE-}" \
-  go run ./cmd/digest run \
+  go run ./cmd/mono run \
     --dataset "$DATASET" \
     --control-time "$CONTROL" \
     --out "$OUT"
 
-echo ">> digest check"
-go run ./cmd/digest check --out "$OUT"
+echo ">> mono check"
+go run ./cmd/mono check --out "$OUT"
 
-echo ">> check_digest.py"
-python tools/check_digest.py "$OUT"
+echo ">> check_mono.py"
+python tools/check_mono.py "$OUT"
 
 echo ">> сбор $SUB/"
-cp -f "$OUT/digest.md" "$SUB/digest.md"
+cp -f "$OUT/mono.md" "$SUB/mono.md"
 cp -f "$OUT/post.txt" "$SUB/post.txt"
 cp -f "$OUT/email_preview.html" "$SUB/email_preview.html"
 cp -f "$OUT/journal.csv" "$SUB/journal.csv"

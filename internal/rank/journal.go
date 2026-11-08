@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
+	"mono/internal/domain"
+	"mono/internal/journal"
 )
 
 // ApplyJournal writes the final inclusion reason for events in Select order.

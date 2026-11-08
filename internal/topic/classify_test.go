@@ -9,13 +9,13 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/ingest"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/normalize"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/ingest"
+	"mono/internal/llm/mock"
+	"mono/internal/normalize"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 func TestClassifyOnTopic(t *testing.T) {

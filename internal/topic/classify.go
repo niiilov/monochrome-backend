@@ -7,14 +7,14 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/journal"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/normalize"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/config"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/journal"
+	"mono/internal/llm"
+	"mono/internal/normalize"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 const (

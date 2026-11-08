@@ -3,7 +3,7 @@ package critic
 import (
 	"encoding/json"
 
-	"cyberdigest/internal/llm/mock"
+	"mono/internal/llm/mock"
 )
 
 // ScriptEvalMock registers answers for Gate + critic eval without the network.

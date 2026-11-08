@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/guard"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/prompts"
-	"cyberdigest/internal/textutil"
+	"mono/internal/domain"
+	"mono/internal/guard"
+	"mono/internal/llm"
+	"mono/internal/prompts"
+	"mono/internal/textutil"
 )
 
 const (

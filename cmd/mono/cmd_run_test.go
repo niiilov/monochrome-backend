@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"cyberdigest/internal/verify"
+	"mono/internal/verify"
 )
 
 func TestRunHelpAndBadArgs(t *testing.T) {
@@ -53,7 +53,7 @@ func TestRunMockSynthetic(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code %d", code)
 	}
-	digest, err := os.ReadFile(filepath.Join(out, "digest.md"))
+	digest, err := os.ReadFile(filepath.Join(out, "mono.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

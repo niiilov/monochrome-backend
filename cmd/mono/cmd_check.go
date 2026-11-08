@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cyberdigest/internal/verify"
+	"mono/internal/verify"
 )
 
 func init() {
-	Register("check", "проверить формат digest.md и journal.csv", runCheck)
+	Register("check", "проверить формат mono.md и journal.csv", runCheck)
 }
 
 func runCheck(ctx context.Context, args []string) int {
@@ -22,9 +22,9 @@ func runCheck(ctx context.Context, args []string) int {
 		arg := args[i]
 		switch {
 		case arg == "-h" || arg == "--help":
-			fmt.Println("Использование: digest check [--out ./out]")
-			fmt.Println("Проверяет out/digest.md и out/journal.csv.")
-			fmt.Println("Если в каталоге запуска есть tools/check_digest.py, запускает и его.")
+			fmt.Println("Использование: mono check [--out ./out]")
+			fmt.Println("Проверяет out/mono.md и out/journal.csv.")
+			fmt.Println("Если в каталоге запуска есть tools/check_mono.py, запускает и его.")
 			return 0
 		case arg == "--out" || arg == "-out" || arg == "--out-dir":
 			if i+1 >= len(args) {
@@ -44,7 +44,7 @@ func runCheck(ctx context.Context, args []string) int {
 			return 2
 		}
 	}
-	digestPath := filepath.Join(outDir, "digest.md")
+	digestPath := filepath.Join(outDir, "mono.md")
 	journalPath := filepath.Join(outDir, "journal.csv")
 	digest, err := os.ReadFile(digestPath)
 	if err != nil {
@@ -78,11 +78,11 @@ func runCheck(ctx context.Context, args []string) int {
 	return 0
 }
 
-// runOrganizerScript runs tools/check_digest.py when the file exists.
+// runOrganizerScript runs tools/check_mono.py when the file exists.
 // The working directory is the directory from which digest was started.
 // ran is false when the file is absent. output is the script's stdout and stderr.
 func runOrganizerScript(ctx context.Context, outDir string) (output string, ran bool, err error) {
-	script := filepath.Join("tools", "check_digest.py")
+	script := filepath.Join("tools", "check_mono.py")
 	info, err := os.Stat(script)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -91,18 +91,18 @@ func runOrganizerScript(ctx context.Context, outDir string) (output string, ran 
 		return "", false, err
 	}
 	if info.IsDir() {
-		return "", true, fmt.Errorf("tools/check_digest.py является каталогом")
+		return "", true, fmt.Errorf("tools/check_mono.py является каталогом")
 	}
 	python := findPython()
 	if python == "" {
-		return "", true, fmt.Errorf("не найден Python для tools/check_digest.py")
+		return "", true, fmt.Errorf("не найден Python для tools/check_mono.py")
 	}
 	cmd := exec.CommandContext(ctx, python, script, outDir)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
-		return buf.String(), true, fmt.Errorf("tools/check_digest.py завершился с ошибкой")
+		return buf.String(), true, fmt.Errorf("tools/check_mono.py завершился с ошибкой")
 	}
 	return buf.String(), true, nil
 }

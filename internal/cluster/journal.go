@@ -3,8 +3,8 @@ package cluster
 import (
 	"strings"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/journal"
+	"mono/internal/domain"
+	"mono/internal/journal"
 )
 
 // ApplyJournal writes cluster statuses for in-period articles and context articles.

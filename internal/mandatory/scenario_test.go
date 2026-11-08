@@ -9,8 +9,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"cyberdigest/internal/extract"
-	"cyberdigest/internal/topic"
+	"mono/internal/extract"
+	"mono/internal/topic"
 )
 
 func TestMandatoryScenarios(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/domain"
+	"mono/internal/config"
+	"mono/internal/domain"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 
 	"github.com/mmcdole/gofeed"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 func parseRSS(src Source, body []byte) ([]domain.Article, error) {

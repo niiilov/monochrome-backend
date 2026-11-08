@@ -6,7 +6,7 @@ import (
 	"sync"
 	"unicode"
 
-	"cyberdigest/internal/domain"
+	"mono/internal/domain"
 )
 
 // Match is one dictionary hit. Weak terms do not prove the topic by themselves.

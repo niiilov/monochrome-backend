@@ -4,10 +4,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/summarize"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 const (

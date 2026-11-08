@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/domain"
-	"cyberdigest/internal/llm/mock"
-	"cyberdigest/internal/render"
-	"cyberdigest/internal/summarize"
-	"cyberdigest/internal/textutil"
-	"cyberdigest/internal/timeutil"
+	"mono/internal/domain"
+	"mono/internal/llm/mock"
+	"mono/internal/render"
+	"mono/internal/summarize"
+	"mono/internal/textutil"
+	"mono/internal/timeutil"
 )
 
 func TestFiveEventsFitDigestPostAndEmail(t *testing.T) {

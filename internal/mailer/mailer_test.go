@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"cyberdigest/internal/config"
+	"mono/internal/config"
 )
 
 func TestSendDryRunSkipsSMTPAndDedups(t *testing.T) {
@@ -58,7 +58,7 @@ func TestSendRejectsAddressOutsideAllowlist(t *testing.T) {
 	m := testMailer(t, config.Mail{
 		DryRun:    false,
 		Host:      "smtp.example",
-		From:      "digest@example.com",
+		From:      "mono@example.com",
 		Allowlist: []string{"ok@example.com"},
 		Password:  "super-secret-smtp",
 	}, sender)
@@ -87,7 +87,7 @@ func TestPublicationTextDoesNotChangeRecipients(t *testing.T) {
 	m := testMailer(t, config.Mail{
 		DryRun:    false,
 		Host:      "smtp.example",
-		From:      "Digest <digest@example.com>",
+		From:      "Mono <mono@example.com>",
 		Allowlist: []string{"ok@example.com"},
 		Password:  "super-secret-smtp",
 		User:      "smtp-user",

@@ -3,9 +3,9 @@ package main
 import (
 	"strings"
 
-	"cyberdigest/internal/config"
-	"cyberdigest/internal/llm"
-	"cyberdigest/internal/runner"
+	"mono/internal/config"
+	"mono/internal/llm"
+	"mono/internal/runner"
 )
 
 const serverVersion = "0.1.0"

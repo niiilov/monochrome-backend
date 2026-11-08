@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"cyberdigest/internal/llm"
+	"mono/internal/llm"
 )
 
 // scriptClient is the deterministic model used by test-mandatory without --live.
