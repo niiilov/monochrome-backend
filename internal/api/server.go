@@ -115,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/healthz", s.health)
 	mux.HandleFunc("POST /api/v1/runs", s.create)
+	mux.HandleFunc("GET /api/v1/runs", s.history)
 	mux.HandleFunc("GET /api/v1/runs/{id}", s.status)
 	mux.HandleFunc("GET /api/v1/runs/{id}/digest", s.digest)
 	mux.HandleFunc("GET /api/v1/runs/{id}/post", s.post)

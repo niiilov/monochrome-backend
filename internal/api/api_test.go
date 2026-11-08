@@ -29,6 +29,75 @@ import (
 	"mono/internal/textutil"
 )
 
+func TestHistoryListsPastDigests(t *testing.T) {
+	ts, _ := newAPI(t, fake.New(fixture("testdata/fake_run")), []string{"ok@example.com"}, true)
+	code, doc, raw := doJSON(t, http.MethodGet, ts.URL+"/api/v1/runs", "")
+	if code != http.StatusOK || raw[0] != '{' {
+		t.Fatalf("empty history %d %s", code, raw)
+	}
+	if runs, _ := doc["runs"].([]any); len(runs) != 0 {
+		t.Fatalf("empty history %+v", doc)
+	}
+	code, _, raw = doJSON(t, http.MethodGet, ts.URL+"/api/v1/runs?status=later", "")
+	if code != http.StatusBadRequest {
+		t.Fatalf("bad status %d %s", code, raw)
+	}
+
+	dataset := fixture("testdata/synthetic/articles.json")
+	code, first, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", createPayload(t, dataset))
+	if code != http.StatusAccepted {
+		t.Fatalf("create %d %s", code, raw)
+	}
+	firstID, _ := first["run_id"].(string)
+	if waitDone(t, ts.URL, firstID)["status"] != statusDone {
+		t.Fatal(firstID)
+	}
+	code, second, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", createPayload(t, dataset))
+	if code != http.StatusAccepted {
+		t.Fatalf("create %d %s", code, raw)
+	}
+	secondID, _ := second["run_id"].(string)
+	if waitDone(t, ts.URL, secondID)["status"] != statusDone {
+		t.Fatal(secondID)
+	}
+
+	code, doc, raw = doJSON(t, http.MethodGet, ts.URL+"/api/v1/runs?status=done", "")
+	if code != http.StatusOK {
+		t.Fatalf("history %d %s", code, raw)
+	}
+	runs, _ := doc["runs"].([]any)
+	if len(runs) != 2 {
+		t.Fatalf("history %+v", doc)
+	}
+	newest, _ := runs[0].(map[string]any)
+	older, _ := runs[1].(map[string]any)
+	if newest["run_id"] != secondID || older["run_id"] != firstID {
+		t.Fatalf("order %+v", runs)
+	}
+	if newest["status"] != statusDone || newest["events"] != float64(1) {
+		t.Fatalf("row %+v", newest)
+	}
+	exportURL, _ := newest["export_url"].(string)
+	if exportURL != "/api/v1/runs/"+secondID+"/export" {
+		t.Fatalf("export_url %q", exportURL)
+	}
+	res, err := http.Get(ts.URL + exportURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zipRaw, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("export %d", res.StatusCode)
+	}
+	names := zipNames(t, zipRaw)
+	for _, name := range exportRequired {
+		if len(names[name]) == 0 {
+			t.Fatalf("zip без %s (%v)", name, keys(names))
+		}
+	}
+}
+
 func TestHealth(t *testing.T) {
 	ts, _ := newAPI(t, &stubRunner{}, []string{"ok@example.com"}, true)
 	code, doc, _ := doJSON(t, http.MethodGet, ts.URL+"/healthz", "")
