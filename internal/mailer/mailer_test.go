@@ -210,6 +210,86 @@ func TestSMTPCanceledContextDoesNotDial(t *testing.T) {
 	}
 }
 
+func TestVerificationCodeAndDigestShareSMTP(t *testing.T) {
+	sender := &captureSender{}
+	m := testMailer(t, config.Mail{
+		DryRun:    true,
+		Host:      "smtp.example",
+		Port:      465,
+		From:      "mono@example.com",
+		Allowlist: []string{"jury@example.com"},
+		Password:  "super-secret-smtp",
+	}, sender)
+	_, err := m.Send(context.Background(), Request{
+		Recipients: []string{"user@example.com"},
+		Message:    Message{Text: "дайджест"},
+	})
+	var rejected *RejectError
+	if !errors.As(err, &rejected) || rejected.Status != http.StatusForbidden || len(sender.msgs) != 0 {
+		t.Fatalf("digest outside allowlist: %v msgs %d", err, len(sender.msgs))
+	}
+	if _, err = m.Send(context.Background(), Request{
+		Recipients: []string{"jury@example.com"},
+		Message:    Message{Text: "дайджест"},
+	}); err != nil || len(sender.msgs) != 0 {
+		t.Fatalf("dry-run digest called SMTP: %v msgs %d", err, len(sender.msgs))
+	}
+	if err = m.SendVerification(context.Background(), "user@example.com", "048291"); err != nil {
+		t.Fatal(err)
+	}
+	if len(sender.msgs) != 1 || len(sender.to) != 1 || sender.to[0][0] != "user@example.com" {
+		t.Fatalf("code was not sent through SMTP: %d", len(sender.msgs))
+	}
+	if !strings.Contains(string(sender.msgs[0]), "048291") {
+		t.Fatal("message has no code")
+	}
+	if _, err = m.Send(context.Background(), Request{
+		Recipients: []string{"jury@example.com"},
+		DryRun:     boolPtr(false),
+		Message:    Message{Text: "дайджест"},
+	}); err != nil || len(sender.msgs) != 2 {
+		t.Fatalf("live digest: %v msgs %d", err, len(sender.msgs))
+	}
+	if strings.Contains(m.logs.String(), "048291") || strings.Contains(m.logs.String(), "super-secret-smtp") {
+		t.Fatal("code or password leaked into the log")
+	}
+	if err = m.SendVerification(context.Background(), "user@example.com", "link"); err == nil || len(sender.msgs) != 2 {
+		t.Fatalf("bad code sent: %v msgs %d", err, len(sender.msgs))
+	}
+}
+
+func TestListedRecipientsSkipAllowlist(t *testing.T) {
+	sender := &captureSender{}
+	m := testMailer(t, config.Mail{
+		DryRun:    true,
+		Host:      "smtp.example",
+		From:      "mono@example.com",
+		Allowlist: []string{"jury@example.com"},
+		Password:  "super-secret-smtp",
+	}, sender)
+	_, err := m.Send(context.Background(), Request{
+		Recipients: []string{"reader@example.com"},
+		DryRun:     boolPtr(false),
+		Message:    Message{Text: "дайджест"},
+	})
+	var rejected *RejectError
+	if !errors.As(err, &rejected) || rejected.Status != http.StatusForbidden || len(sender.msgs) != 0 {
+		t.Fatalf("allowlist: %v", err)
+	}
+	res, err := m.Send(context.Background(), Request{
+		Recipients:   []string{"reader@example.com"},
+		DryRun:       boolPtr(false),
+		Unrestricted: true,
+		Message:      Message{Text: "дайджест"},
+	})
+	if err != nil || res.Entry.Result != resultSent || len(sender.msgs) != 1 || sender.to[0][0] != "reader@example.com" {
+		t.Fatalf("listed send: %v %+v", err, res.Entry)
+	}
+	if strings.Contains(m.logs.String(), "super-secret-smtp") {
+		t.Fatal("password leaked into the log")
+	}
+}
+
 func TestEmptyAllowlistRejectsEveryone(t *testing.T) {
 	m := testMailer(t, config.Mail{DryRun: true}, &captureSender{})
 	_, err := m.Send(context.Background(), Request{Recipients: []string{"ok@example.com"}})

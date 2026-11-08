@@ -41,8 +41,10 @@ type articleBody struct {
 // sendBody takes recipients only from this object.
 // Text fields of a publication are not part of the request and cannot change the list.
 type sendBody struct {
-	Recipients []string `json:"recipients"`
-	DryRun     *bool    `json:"dry_run"`
+	Recipients   []string `json:"recipients"`
+	RecipientIDs []string `json:"recipient_ids"`
+	Mode         string   `json:"mode"`
+	DryRun       *bool    `json:"dry_run"`
 }
 
 func (s *Server) create(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +175,10 @@ func (s *Server) send(w http.ResponseWriter, r *http.Request) {
 	text, html, err := readLetter(dir)
 	if err != nil {
 		writeErr(w, http.StatusConflict, "письмо ещё не собрано")
+		return
+	}
+	if body.Mode != "" {
+		s.sendSaved(w, r, dir, body, text, html)
 		return
 	}
 	// Recipients are the request list only. Letter text is not scanned for addresses.
@@ -419,12 +425,13 @@ func readSend(r *http.Request) (sendBody, error) {
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 			return sendBody{}, &inputError{msg: "некорректный JSON"}
 		}
+		body.Mode = strings.ToLower(strings.TrimSpace(body.Mode))
 		return body, nil
 	}
 	if err := r.ParseForm(); err != nil {
 		return sendBody{}, &inputError{msg: "некорректная форма"}
 	}
-	body := sendBody{Recipients: splitField(r.FormValue("recipients"))}
+	body := sendBody{Recipients: splitField(r.FormValue("recipients")), RecipientIDs: splitField(r.FormValue("recipient_ids")), Mode: strings.ToLower(strings.TrimSpace(r.FormValue("mode")))}
 	if r.Form.Has("dry_run") {
 		dry := parseBool(r.FormValue("dry_run"))
 		body.DryRun = &dry

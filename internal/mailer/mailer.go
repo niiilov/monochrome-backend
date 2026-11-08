@@ -53,10 +53,12 @@ type Message struct {
 // Request is one delivery attempt.
 // A nil DryRun uses the config value, which defaults to true.
 // An empty Recipients list uses the configured allowlist.
+// Unrestricted skips that allowlist. The API sets it only for addresses saved by the user.
 type Request struct {
-	Recipients []string
-	DryRun     *bool
-	Message    Message
+	Recipients   []string
+	DryRun       *bool
+	Message      Message
+	Unrestricted bool
 }
 
 // Entry is one line of the send journal. It never contains a password.
@@ -137,7 +139,7 @@ func (m *Mailer) Send(ctx context.Context, req Request) (Result, error) {
 		dry = *req.DryRun
 	}
 	rawList := req.Recipients
-	if len(rawList) == 0 {
+	if len(rawList) == 0 && !req.Unrestricted {
 		rawList = append([]string(nil), m.cfg.Allowlist...)
 	}
 	recipients, err := normalizeList(rawList)
@@ -153,11 +155,13 @@ func (m *Mailer) Send(ctx context.Context, req Request) (Result, error) {
 			Message: fmt.Sprintf("слишком много адресов: %d, лимит %d", len(recipients), m.max),
 		})
 	}
-	if outside := notAllowed(recipients, m.allow); len(outside) > 0 {
-		return m.reject(recipients, dry, &RejectError{
-			Status:  http.StatusForbidden,
-			Message: "адрес вне списка разрешённых: " + strings.Join(outside, ", "),
-		})
+	if !req.Unrestricted {
+		if outside := notAllowed(recipients, m.allow); len(outside) > 0 {
+			return m.reject(recipients, dry, &RejectError{
+				Status:  http.StatusForbidden,
+				Message: "адрес вне списка разрешённых: " + strings.Join(outside, ", "),
+			})
+		}
 	}
 	from, err := m.senderAddress(dry)
 	if err != nil {
@@ -275,6 +279,11 @@ func splitRaw(list []string) []string {
 		}
 	}
 	return out
+}
+
+// NormalizeAddress checks one mailbox and returns it in lower case.
+func NormalizeAddress(raw string) (string, error) {
+	return parseAddress(raw)
 }
 
 func parseAddress(raw string) (string, error) {

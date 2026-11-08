@@ -163,7 +163,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		s.databaseError(w, err)
 		return
 	}
-	token, err := randomToken()
+	code, err := randomCode()
 	if err != nil {
 		s.databaseError(w, err)
 		return
@@ -173,7 +173,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expires := time.Now().Add(verificationTTL)
-	user, err := s.store.Register(r.Context(), storage.User{ID: id, Email: body.Email, Name: body.Name}, string(hash), tokenHash(token), expires)
+	user, err := s.store.Register(r.Context(), storage.User{ID: id, Email: body.Email, Name: body.Name}, string(hash), verificationHash(id, code), expires)
 	if errors.Is(err, storage.ErrEmailTaken) {
 		writeErr(w, 409, "этот email уже зарегистрирован")
 		return
@@ -182,11 +182,11 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		s.databaseError(w, err)
 		return
 	}
-	if err = s.sendVerification(r.Context(), user.Email, token); err != nil {
+	if err = s.sendVerification(r.Context(), user.Email, code); err != nil {
 		writeErr(w, http.StatusBadGateway, "аккаунт создан, но письмо не отправлено; запросите подтверждение повторно")
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"user": user, "verification_required": true, "message": "подтвердите почту по ссылке в письме"})
+	writeJSON(w, http.StatusCreated, map[string]any{"user": user, "verification_required": true, "message": "код подтверждения отправлен на почту"})
 }
 
 // The dummy hash makes unknown users go through the same expensive password check.
@@ -215,7 +215,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !user.EmailVerified {
-		writeErr(w, http.StatusForbidden, "сначала подтвердите почту по ссылке в письме")
+		writeErr(w, http.StatusForbidden, "сначала введите код из письма")
 		return
 	}
 	token, err := randomToken()

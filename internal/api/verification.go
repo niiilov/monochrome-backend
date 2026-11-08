@@ -2,17 +2,20 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
-	"html/template"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"mono/internal/storage"
 )
-
-const verificationTTL = 24 * time.Hour
 
 func validatePublicURL(raw string) (string, error) {
 	if raw == "" {
@@ -25,82 +28,115 @@ func validatePublicURL(raw string) (string, error) {
 	return strings.TrimRight(raw, "/"), nil
 }
 
-func (s *Server) sendVerification(ctx context.Context, email, token string) error {
+const (
+	verificationTTL = 15 * time.Minute
+	maxCodeAttempts = 5
+)
+
+func randomCode() (string, error) {
+	const span = 1000000
+	limit := ^uint64(0) / span * span
+	var raw [8]byte
+	var value uint64
+	for {
+		if _, err := rand.Read(raw[:]); err != nil {
+			return "", err
+		}
+		n := binary.BigEndian.Uint64(raw[:])
+		if n < limit {
+			value = n % span
+			break
+		}
+	}
+	var digits [6]byte
+	for i := 5; i >= 0; i-- {
+		digits[i] = byte('0' + value%10)
+		value /= 10
+	}
+	return string(digits[:]), nil
+}
+
+func verificationHash(userID, code string) string {
+	sum := sha256.Sum256([]byte(userID + ":" + code))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *Server) sendVerification(ctx context.Context, email, code string) error {
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
-	link := s.publicURL + "/api/v1/auth/verify-email?token=" + url.QueryEscape(token)
-	return s.mail.SendVerification(ctx, email, link)
+	return s.mail.SendVerification(ctx, email, code)
 }
 
-var verificationTemplate = template.Must(template.New("verification").Parse(`<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Подтверждение почты | Monochrome Digital</title></head>
-<body><main><h1>Подтверждение почты</h1>
-{{if .Token}}<p>Нажмите кнопку, чтобы подтвердить адрес и завершить регистрацию.</p>
-<form method="post" action="/api/v1/auth/verify-email"><input type="hidden" name="token" value="{{.Token}}"><button type="submit">Подтвердить почту</button></form>
-{{else}}<p>Почта подтверждена. Теперь можно войти в аккаунт.</p><a href="/">Перейти на сайт</a>{{end}}
-</main></body></html>`))
-
-func verificationHeaders(w http.ResponseWriter) {
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+func validAccountEmail(email string) bool {
+	address, err := mail.ParseAddress(email)
+	return err == nil && address.Address == email && len(email) <= 254 && strings.Contains(email, "@")
 }
 
-// GET never consumes the token: mail scanners must not activate an account.
-func (s *Server) verificationPage(w http.ResponseWriter, r *http.Request) {
-	verificationHeaders(w)
-	token := r.URL.Query().Get("token")
-	if len(token) != 64 {
-		writeErr(w, 400, "некорректная ссылка подтверждения")
-		return
+func validCode(code string) bool {
+	if len(code) != 6 {
+		return false
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = verificationTemplate.Execute(w, struct{ Token string }{token})
+	for _, r := range code {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
-	verificationHeaders(w)
 	if !s.authLimit.allow(r.RemoteAddr) {
 		writeErr(w, 429, "слишком много попыток")
 		return
 	}
-	var token string
-	isForm := strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
-	if isForm {
-		r.Body = http.MaxBytesReader(w, r.Body, 4096)
-		if err := r.ParseForm(); err != nil {
-			writeErr(w, 400, "некорректная форма")
-			return
-		}
-		token = r.PostForm.Get("token")
-	} else {
-		var body struct {
-			Token string `json:"token"`
-		}
-		if !decodeSmallJSON(w, r, &body) {
-			return
-		}
-		token = body.Token
+	var body struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
 	}
-	if len(token) != 64 {
-		writeErr(w, 400, "некорректная ссылка подтверждения")
+	if !decodeSmallJSON(w, r, &body) {
 		return
 	}
-	user, err := s.store.VerifyEmail(r.Context(), tokenHash(token))
-	if errors.Is(err, storage.ErrNotFound) {
-		writeErr(w, 400, "ссылка уже использована или истекла; запросите новое письмо")
+	email := strings.ToLower(strings.TrimSpace(body.Email))
+	code := strings.TrimSpace(body.Code)
+	if !validAccountEmail(email) || !validCode(code) {
+		writeErr(w, 400, "укажите почту и код из письма")
+		return
+	}
+	user, _, err := s.store.UserByEmail(r.Context(), email)
+	if errors.Is(err, storage.ErrNotFound) || (err == nil && user.EmailVerified) {
+		writeErr(w, 400, "код уже использован или истёк; запросите новое письмо")
 		return
 	}
 	if err != nil {
 		s.databaseError(w, err)
 		return
 	}
-	if isForm {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = verificationTemplate.Execute(w, struct{ Token string }{})
+	if s.codeAttempts.tooMany(user.ID) {
+		writeErr(w, 400, "код уже использован или истёк; запросите новое письмо")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"user": user, "message": "почта подтверждена, теперь можно войти"})
+	verified, err := s.store.VerifyEmail(r.Context(), verificationHash(user.ID, code))
+	if errors.Is(err, storage.ErrNotFound) {
+		if s.codeAttempts.fail(user.ID) {
+			s.invalidateCode(r.Context(), user.ID)
+		}
+		writeErr(w, 400, "код уже использован или истёк; запросите новое письмо")
+		return
+	}
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
+	s.codeAttempts.reset(user.ID)
+	writeJSON(w, 200, map[string]any{"user": verified, "message": "почта подтверждена, теперь можно войти"})
+}
+
+func (s *Server) invalidateCode(ctx context.Context, userID string) {
+	dead, err := randomToken()
+	if err != nil {
+		return
+	}
+	_ = s.store.ReplaceVerification(ctx, userID, tokenHash("dead:"+dead), time.Now().Add(verificationTTL))
 }
 
 func (s *Server) resendVerification(w http.ResponseWriter, r *http.Request) {
@@ -122,21 +158,49 @@ func (s *Server) resendVerification(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 503, "отправка подтверждения не настроена")
 			return
 		}
-		token, err := randomToken()
+		code, err := randomCode()
 		if err != nil {
 			s.databaseError(w, err)
 			return
 		}
-		if err = s.store.ReplaceVerification(r.Context(), user.ID, tokenHash(token), time.Now().Add(verificationTTL)); err != nil && !errors.Is(err, storage.ErrNotFound) {
+		if err = s.store.ReplaceVerification(r.Context(), user.ID, verificationHash(user.ID, code), time.Now().Add(verificationTTL)); err != nil && !errors.Is(err, storage.ErrNotFound) {
 			s.databaseError(w, err)
 			return
 		}
 		if err == nil {
-			if err = s.sendVerification(r.Context(), user.Email, token); err != nil {
+			if err = s.sendVerification(r.Context(), user.Email, code); err != nil {
 				writeErr(w, 502, "не удалось отправить письмо подтверждения")
 				return
 			}
+			s.codeAttempts.reset(user.ID)
 		}
 	}
 	writeJSON(w, 202, map[string]string{"message": "если адрес ожидает подтверждения, письмо отправлено"})
+}
+
+type codeLimiter struct {
+	mu sync.Mutex
+	n  map[string]int
+}
+
+func (l *codeLimiter) fail(id string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.n == nil {
+		l.n = map[string]int{}
+	}
+	l.n[id]++
+	return l.n[id] >= maxCodeAttempts
+}
+
+func (l *codeLimiter) tooMany(id string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.n[id] >= maxCodeAttempts
+}
+
+func (l *codeLimiter) reset(id string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.n, id)
 }

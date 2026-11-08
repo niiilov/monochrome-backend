@@ -669,6 +669,137 @@ func readPlain(t *testing.T, msg *mail.Message) string {
 	return ""
 }
 
+func TestRecipientMailingList(t *testing.T) {
+	db := newMemoryStore()
+	sender := &captureSender{}
+	m := mailer.New(config.Mail{
+		DryRun:    true,
+		Host:      "smtp.example",
+		From:      "mono@example.com",
+		Port:      587,
+		Allowlist: []string{"ok@example.com"},
+		Password:  "super-secret-smtp",
+	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	m.SetSender(sender)
+	service, err := New(&stubRunner{}, m, t.TempDir(), slog.New(slog.NewJSONHandler(io.Discard, nil)), db, Options{DatasetRoots: []string{fixture("testdata")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(service.Handler())
+	t.Cleanup(func() {
+		ts.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = service.Shutdown(ctx)
+	})
+	seed := func(id, email, token string) {
+		t.Helper()
+		if _, err := db.Register(context.Background(), storage.User{ID: id, Email: email}, "unused", tokenHash(token), time.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.VerifyEmail(context.Background(), tokenHash(token)); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.CreateSession(context.Background(), id, tokenHash(token), time.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tokenA := strings.Repeat("a", 64)
+	tokenB := strings.Repeat("b", 64)
+	seed("user-a", "a@example.com", tokenA)
+	seed("user-b", "b@example.com", tokenB)
+	call := func(method, path, payload, token string, want int) map[string]any {
+		t.Helper()
+		req, err := http.NewRequest(method, ts.URL+path, strings.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if payload != "" || method == http.MethodPost || method == http.MethodPatch {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		raw, _ := io.ReadAll(res.Body)
+		if res.StatusCode != want {
+			t.Fatalf("%s %s: %d want %d: %s", method, path, res.StatusCode, want, raw)
+		}
+		if strings.Contains(string(raw), "super-secret-smtp") {
+			t.Fatal("password leaked")
+		}
+		var doc map[string]any
+		_ = json.Unmarshal(raw, &doc)
+		return doc
+	}
+	call("GET", "/api/v1/recipients", "", "", 401)
+	if len(call("GET", "/api/v1/recipients", "", tokenA, 200)["recipients"].([]any)) != 0 {
+		t.Fatal("new list is not empty")
+	}
+	call("POST", "/api/v1/recipients", `{"email":"not-an-email","status":"send"}`, tokenA, 400)
+	added := call("POST", "/api/v1/recipients", `{"email":"Reader@Example.com","status":"отправлять"}`, tokenA, 201)
+	first := added["recipients"].([]any)[0].(map[string]any)
+	if first["email"] != "reader@example.com" || first["status"] != "send" {
+		t.Fatalf("created %+v", first)
+	}
+	second := call("POST", "/api/v1/recipients", `{"emails":["quiet@example.com"],"status":"не отправлять"}`, tokenA, 201)["recipients"].([]any)[0].(map[string]any)
+	if second["status"] != "skip" {
+		t.Fatalf("status %+v", second)
+	}
+	call("POST", "/api/v1/recipients", `{"email":"reader@example.com"}`, tokenA, 409)
+	if len(call("GET", "/api/v1/recipients", "", tokenB, 200)["recipients"].([]any)) != 0 {
+		t.Fatal("list leaked to another user")
+	}
+	call("PATCH", "/api/v1/recipients/"+first["id"].(string), `{"status":"skip"}`, tokenB, 404)
+	call("DELETE", "/api/v1/recipients/"+first["id"].(string), "", tokenB, 404)
+	created := call("POST", "/api/v1/runs", createPayload(t, fixture("testdata/synthetic/articles.json")), tokenA, 202)
+	runID := created["run_id"].(string)
+	var state map[string]any
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(15 * time.Millisecond) {
+		state = call("GET", "/api/v1/runs/"+runID, "", tokenA, 200)
+		if state["status"] == statusDone || state["status"] == statusFailed || time.Now().After(deadline) {
+			break
+		}
+	}
+	if state["status"] != statusDone {
+		t.Fatalf("run %+v", state)
+	}
+	sent := call("POST", "/api/v1/runs/"+runID+"/send", `{"mode":"all","dry_run":false}`, tokenA, 200)
+	results := sent["results"].([]any)
+	if len(results) != 1 || results[0].(map[string]any)["email"] != "reader@example.com" || results[0].(map[string]any)["result"] != "sent" {
+		t.Fatalf("send all %+v", sent)
+	}
+	if len(sender.msgs) != 1 || !strings.Contains(string(sender.msgs[0]), "reader@example.com") || strings.Contains(string(sender.msgs[0]), "quiet@example.com") {
+		t.Fatal("wrong SMTP delivery for send all")
+	}
+	call("POST", "/api/v1/runs/"+runID+"/send", fmt.Sprintf(`{"mode":"selected","recipient_ids":[%q],"dry_run":false}`, second["id"]), tokenA, 400)
+	if len(sender.msgs) != 1 {
+		t.Fatal("skipped address was sent")
+	}
+	call("PATCH", "/api/v1/recipients/"+second["id"].(string), `{"status":"отправлять"}`, tokenA, 200)
+	selected := call("POST", "/api/v1/runs/"+runID+"/send", fmt.Sprintf(`{"mode":"selected","recipient_ids":[%q],"dry_run":false}`, second["id"]), tokenA, 200)
+	if selected["results"].([]any)[0].(map[string]any)["email"] != "quiet@example.com" || len(sender.msgs) != 2 {
+		t.Fatalf("selected %+v msgs %d", selected, len(sender.msgs))
+	}
+	everyone := call("POST", "/api/v1/runs/"+runID+"/send", `{"mode":"all","dry_run":false}`, tokenA, 200)
+	if len(everyone["results"].([]any)) != 2 || len(sender.msgs) != 4 {
+		t.Fatalf("send all after enabling %+v msgs %d", everyone, len(sender.msgs))
+	}
+	call("POST", "/api/v1/runs/"+runID+"/send", `{"recipients":["leak@evil.test"],"dry_run":true}`, tokenA, 403)
+	if len(sender.msgs) != 4 {
+		t.Fatal("allowlist no longer blocks a raw recipient")
+	}
+	call("DELETE", "/api/v1/recipients/"+second["id"].(string), "", tokenA, 200)
+	left := call("GET", "/api/v1/recipients", "", tokenA, 200)["recipients"].([]any)
+	if len(left) != 1 || left[0].(map[string]any)["email"] != "reader@example.com" {
+		t.Fatalf("after delete %+v", left)
+	}
+}
+
 func fixture(rel string) string {
 	return filepath.Clean(filepath.Join("..", "..", rel))
 }

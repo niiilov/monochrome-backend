@@ -38,6 +38,7 @@ type Server struct {
 	store         storage.Repository
 	secureCookies bool
 	authLimit     authLimiter
+	codeAttempts  codeLimiter
 	datasetRoots  []string
 	publicURL     string
 
@@ -147,7 +148,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/healthz", s.health)
 	mux.HandleFunc("POST /api/v1/auth/register", s.register)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
-	mux.HandleFunc("GET /api/v1/auth/verify-email", s.verificationPage)
 	mux.HandleFunc("POST /api/v1/auth/verify-email", s.verifyEmail)
 	mux.HandleFunc("POST /api/v1/auth/resend-verification", s.resendVerification)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.authenticated(s.logout))
@@ -162,6 +162,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{id}/journal", s.authenticated(s.journal))
 	mux.HandleFunc("GET /api/v1/runs/{id}/report", s.authenticated(s.report))
 	mux.HandleFunc("GET /api/v1/runs/{id}/export", s.authenticated(s.export))
+	mux.HandleFunc("GET /api/v1/recipients", s.authenticated(s.listRecipients))
+	mux.HandleFunc("POST /api/v1/recipients", s.authenticated(s.createRecipients))
+	mux.HandleFunc("PATCH /api/v1/recipients/{id}", s.authenticated(s.updateRecipient))
+	mux.HandleFunc("DELETE /api/v1/recipients/{id}", s.authenticated(s.deleteRecipient))
 	mux.HandleFunc("POST /api/v1/runs/{id}/send", s.authenticated(s.send))
 	mux.HandleFunc("POST /api/v1/runs/{id}/articles", s.authenticated(s.articles))
 	return sameOrigin(mux, s.publicURL)

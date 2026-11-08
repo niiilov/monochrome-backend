@@ -32,6 +32,16 @@ type Run struct {
 	Request   json.RawMessage
 }
 
+// Recipient is one address in the user's mailing list.
+// Status send means include in "send to all"; skip means do not send.
+type Recipient struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"-"`
+	Email     string    `json:"email"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // Repository always scopes reads to the authenticated user. Tokens are SHA-256 hashes.
 type Repository interface {
 	Register(context.Context, User, string, string, time.Time) (User, error)
@@ -46,6 +56,10 @@ type Repository interface {
 	UpdateRun(context.Context, Run) error
 	GetRun(context.Context, string, string) (Run, error)
 	ListRuns(context.Context, string, string) ([]Run, error)
+	ListRecipients(context.Context, string) ([]Recipient, error)
+	CreateRecipient(context.Context, string, Recipient) (Recipient, error)
+	UpdateRecipient(context.Context, string, string, string) (Recipient, error)
+	DeleteRecipient(context.Context, string, string) error
 	RecoverRuns(context.Context) error
 	Ping(context.Context) error
 }

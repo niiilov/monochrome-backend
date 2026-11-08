@@ -217,6 +217,53 @@ func (db *Postgres) ListRuns(ctx context.Context, userID, status string) ([]Run,
 	return runs, rows.Err()
 }
 
+func (db *Postgres) ListRecipients(ctx context.Context, userID string) ([]Recipient, error) {
+	rows, err := db.pool.Query(ctx, `SELECT id,user_id,email,status,created_at FROM recipients WHERE user_id=$1 ORDER BY created_at,id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := []Recipient{}
+	for rows.Next() {
+		var item Recipient
+		if err = rows.Scan(&item.ID, &item.UserID, &item.Email, &item.Status, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, item)
+	}
+	return list, rows.Err()
+}
+
+func (db *Postgres) CreateRecipient(ctx context.Context, userID string, item Recipient) (Recipient, error) {
+	err := db.pool.QueryRow(ctx, `INSERT INTO recipients(id,user_id,email,status) VALUES($1,$2,$3,$4) RETURNING created_at`, item.ID, userID, item.Email, item.Status).Scan(&item.CreatedAt)
+	var pgerr *pgconn.PgError
+	if errors.As(err, &pgerr) && pgerr.Code == "23505" && pgerr.ConstraintName == "recipients_user_email_key" {
+		return Recipient{}, ErrEmailTaken
+	}
+	if err != nil {
+		return Recipient{}, err
+	}
+	item.UserID = userID
+	return item, nil
+}
+
+func (db *Postgres) UpdateRecipient(ctx context.Context, userID, id, status string) (Recipient, error) {
+	var item Recipient
+	err := db.pool.QueryRow(ctx, `UPDATE recipients SET status=$3 WHERE id=$1 AND user_id=$2 RETURNING id,user_id,email,status,created_at`, id, userID, status).Scan(&item.ID, &item.UserID, &item.Email, &item.Status, &item.CreatedAt)
+	return item, notFound(err)
+}
+
+func (db *Postgres) DeleteRecipient(ctx context.Context, userID, id string) error {
+	res, err := db.pool.Exec(ctx, `DELETE FROM recipients WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // RecoverRuns is for the single worker process that owns the runs volume.
 func (db *Postgres) RecoverRuns(ctx context.Context) error {
 	_, err := db.pool.Exec(ctx, `UPDATE runs SET status='failed', snapshot=snapshot || jsonb_build_object('status','failed','error','сервер перезапущен до конца прогона','finished_at',to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')) WHERE status='running'`)

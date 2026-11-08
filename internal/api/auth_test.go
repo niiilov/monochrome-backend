@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,10 +38,11 @@ type memoryStore struct {
 	sessions      map[string]testToken
 	verifications map[string]testToken
 	runs          map[string]storage.Run
+	recipients    map[string]storage.Recipient
 }
 
 func newMemoryStore() *memoryStore {
-	return &memoryStore{users: map[string]testAccount{}, sessions: map[string]testToken{}, verifications: map[string]testToken{}, runs: map[string]storage.Run{}}
+	return &memoryStore{users: map[string]testAccount{}, sessions: map[string]testToken{}, verifications: map[string]testToken{}, runs: map[string]storage.Run{}, recipients: map[string]storage.Recipient{}}
 }
 func (db *memoryStore) Register(_ context.Context, u storage.User, hash, token string, expires time.Time) (storage.User, error) {
 	db.mu.Lock()
@@ -199,6 +199,66 @@ func (db *memoryStore) RecoverRuns(_ context.Context) error {
 }
 func (db *memoryStore) Ping(context.Context) error { return nil }
 
+func recipientKey(userID, id string) string { return userID + "\n" + id }
+
+func (db *memoryStore) ListRecipients(_ context.Context, userID string) ([]storage.Recipient, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	list := []storage.Recipient{}
+	for _, item := range db.recipients {
+		if item.UserID == userID {
+			list = append(list, item)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].CreatedAt.Equal(list[j].CreatedAt) {
+			return list[i].ID < list[j].ID
+		}
+		return list[i].CreatedAt.Before(list[j].CreatedAt)
+	})
+	return list, nil
+}
+
+func (db *memoryStore) CreateRecipient(_ context.Context, userID string, item storage.Recipient) (storage.Recipient, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	for _, have := range db.recipients {
+		if have.UserID == userID && have.Email == item.Email {
+			return storage.Recipient{}, storage.ErrEmailTaken
+		}
+	}
+	item.UserID = userID
+	item.CreatedAt = time.Now()
+	if db.recipients == nil {
+		db.recipients = map[string]storage.Recipient{}
+	}
+	db.recipients[recipientKey(userID, item.ID)] = item
+	return item, nil
+}
+
+func (db *memoryStore) UpdateRecipient(_ context.Context, userID, id, status string) (storage.Recipient, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	item, ok := db.recipients[recipientKey(userID, id)]
+	if !ok {
+		return storage.Recipient{}, storage.ErrNotFound
+	}
+	item.Status = status
+	db.recipients[recipientKey(userID, id)] = item
+	return item, nil
+}
+
+func (db *memoryStore) DeleteRecipient(_ context.Context, userID, id string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	key := recipientKey(userID, id)
+	if _, ok := db.recipients[key]; !ok {
+		return storage.ErrNotFound
+	}
+	delete(db.recipients, key)
+	return nil
+}
+
 func (db *memoryStore) UpdateUser(_ context.Context, id string, name *string, keywords *[]string) (storage.User, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -303,21 +363,22 @@ func exerciseAuth(t *testing.T, db storage.Repository) {
 	call("POST", auth+"register", payload, "", 409)
 	call("POST", auth+"login", payload, "", 403)
 	call("POST", auth+"login", fmt.Sprintf(`{"email":%q,"password":"wrong-password"}`, email), "", 401)
-	link, token := lastVerification(t, sender, email)
-	if !strings.HasPrefix(link, "https://monochrome-digital.online/api/v1/auth/verify-email?") {
-		t.Fatalf("wrong public URL: %s", link)
+	code := lastVerification(t, sender, email)
+	wrong := "000000"
+	if wrong == code {
+		wrong = "000001"
 	}
-	call("GET", auth+"verify-email?token="+token, "", "", 200)
-	call("POST", auth+"login", payload, "", 403) // scanners visiting GET cannot confirm the account
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, email, wrong), "", 400)
+	call("POST", auth+"login", payload, "", 403)
 	if err := db.ReplaceVerification(context.Background(), u.ID, tokenHash(strings.Repeat("f", 64)), time.Now().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	call("POST", auth+"verify-email", fmt.Sprintf(`{"token":%q}`, strings.Repeat("f", 64)), "", 400)
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, email, code), "", 400)
 	call("POST", auth+"resend-verification", fmt.Sprintf(`{"email":%q}`, email), "", 202)
-	_, replacement := lastVerification(t, sender, email)
-	call("POST", auth+"verify-email", fmt.Sprintf(`{"token":%q}`, token), "", 400)
-	call("POST", auth+"verify-email", fmt.Sprintf(`{"token":%q}`, replacement), "", 200)
-	call("POST", auth+"verify-email", fmt.Sprintf(`{"token":%q}`, replacement), "", 400)
+	replacement := lastVerification(t, sender, email)
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, email, code), "", 400)
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, email, replacement), "", 200)
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, email, replacement), "", 400)
 	login := call("POST", auth+"login", payload, "", 200)
 	first := login["token"].(string)
 	if _, err := db.SessionUser(context.Background(), first); !errors.Is(err, storage.ErrNotFound) {
@@ -358,8 +419,8 @@ func exerciseAuth(t *testing.T, db storage.Repository) {
 	secondEmail := "other-" + suffix[:12] + "@example.com"
 	secondPayload := fmt.Sprintf(`{"email":%q,"password":"other-password"}`, secondEmail)
 	call("POST", auth+"register", secondPayload, "", 201)
-	_, vtoken := lastVerification(t, sender, secondEmail)
-	call("POST", auth+"verify-email", fmt.Sprintf(`{"token":%q}`, vtoken), "", 200)
+	vcode := lastVerification(t, sender, secondEmail)
+	call("POST", auth+"verify-email", fmt.Sprintf(`{"email":%q,"code":%q}`, secondEmail, vcode), "", 200)
 	second := call("POST", auth+"login", secondPayload, "", 200)["token"].(string)
 	other := call("GET", auth+"me", "", second, 200)["user"].(map[string]any)
 	if other["name"] == "Новое имя" {
@@ -433,7 +494,7 @@ func exerciseAuth(t *testing.T, db storage.Repository) {
 	}
 }
 
-func lastVerification(t *testing.T, sender *captureSender, email string) (string, string) {
+func lastVerification(t *testing.T, sender *captureSender, email string) string {
 	t.Helper()
 	sender.mu.Lock()
 	defer sender.mu.Unlock()
@@ -446,18 +507,75 @@ func lastVerification(t *testing.T, sender *captureSender, email string) (string
 			continue
 		}
 		plain := readPlain(t, msg)
-		for _, word := range strings.Fields(plain) {
-			if strings.Contains(word, "/api/v1/auth/verify-email?token=") {
-				u, err := url.Parse(word)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return word, u.Query().Get("token")
+		for _, line := range strings.Split(plain, "\n") {
+			code := strings.TrimSpace(line)
+			if len(code) == 6 && strings.Trim(code, "0123456789") == "" {
+				return code
 			}
 		}
 	}
 	t.Fatal("verification mail missing")
-	return "", ""
+	return ""
+}
+
+func TestVerificationCodeLockout(t *testing.T) {
+	db := newMemoryStore()
+	sender := &captureSender{}
+	m := mailer.New(config.Mail{Host: "smtp.example", Port: 465, From: "mono@example.com"}, nil)
+	m.SetSender(sender)
+	service, err := New(&stubRunner{}, m, t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)), db, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(service.Handler())
+	t.Cleanup(ts.Close)
+	email := "lock@example.com"
+	payload := fmt.Sprintf(`{"email":%q,"password":"valid-password"}`, email)
+	res, err := http.Post(ts.URL+"/api/v1/auth/register", "application/json", strings.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 201 {
+		t.Fatalf("register %d", res.StatusCode)
+	}
+	code := lastVerification(t, sender, email)
+	wrong := "111111"
+	if wrong == code {
+		wrong = "111112"
+	}
+	for i := 0; i < 5; i++ {
+		res, err = http.Post(ts.URL+"/api/v1/auth/verify-email", "application/json", strings.NewReader(fmt.Sprintf(`{"email":%q,"code":%q}`, email, wrong)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 400 {
+			t.Fatalf("attempt %d: %d", i, res.StatusCode)
+		}
+	}
+	res, err = http.Post(ts.URL+"/api/v1/auth/verify-email", "application/json", strings.NewReader(fmt.Sprintf(`{"email":%q,"code":%q}`, email, code)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 400 {
+		t.Fatalf("code survived lockout: %d", res.StatusCode)
+	}
+	res, err = http.Post(ts.URL+"/api/v1/auth/resend-verification", "application/json", strings.NewReader(fmt.Sprintf(`{"email":%q}`, email)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	fresh := lastVerification(t, sender, email)
+	res, err = http.Post(ts.URL+"/api/v1/auth/verify-email", "application/json", strings.NewReader(fmt.Sprintf(`{"email":%q,"code":%q}`, email, fresh)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("resent code: %d", res.StatusCode)
+	}
 }
 
 func TestAuthRateLimit(t *testing.T) {

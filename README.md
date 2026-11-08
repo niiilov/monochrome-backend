@@ -22,6 +22,18 @@ python tools/check_mono.py ./out
 
 HTTP API: `./bin/monod` (см. `cmd/monod`).
 
+Список рассылки принадлежит вошедшему пользователю. Статус `send` значит «отправлять», `skip` значит «не отправлять».
+
+| Метод | Путь | Тело |
+|---|---|---|
+| GET | `/api/v1/recipients` | таблица адресов |
+| POST | `/api/v1/recipients` | `{"email":"...","status":"send"}` или `{"emails":["..."],"status":"skip"}` |
+| PATCH | `/api/v1/recipients/{id}` | `{"status":"send"}` или `{"status":"skip"}` |
+| DELETE | `/api/v1/recipients/{id}` | удалить адрес |
+| POST | `/api/v1/runs/{id}/send` | `{"mode":"all"}` или `{"mode":"selected","recipient_ids":["..."]}` |
+
+`all` берёт только адреса со статусом `send`. `selected` отправляет выбранные, и каждый из них тоже должен быть `send`. Письма уходят по одному через тот же SMTP. Если `dry_run` не передан, письмо отправляется по-настоящему. Старый вызов с полем `recipients` по-прежнему сверяет адрес с allowlist.
+
 То же API через Docker Compose (ключ из `.env`, прогоны в `./runs`):
 
 ```bash
@@ -53,9 +65,10 @@ LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.
 | `LLM_BASE_URL` | OpenAI-совместимый endpoint |
 | `LLM_MODEL` | имя модели |
 | `LLM_PROXY` / `LLM_PROXY_FILE` | опциональный HTTP-прокси |
-| `SMTP_*`, `ALLOWED_TEST_RECIPIENTS` | рассылка (allowlist) |
+| `SMTP_*` | SMTP и для одноразового кода регистрации, и для рассылки дайджеста |
+| `ALLOWED_TEST_RECIPIENTS` | allowlist только для старого вызова с полем `recipients`. Код регистрации и рассылка по сохранённому списку идут через тот же SMTP без этого списка |
 | `DATABASE_URL` | PostgreSQL для аккаунтов, сессий и списка выпусков. Без неё `monod` не запускается |
-| `APP_PUBLIC_URL` | публичный адрес для ссылки подтверждения почты |
+| `APP_PUBLIC_URL` | публичный адрес сайта для проверки Origin |
 | `AUTH_COOKIE_SECURE` | `true`, если сайт открывается по HTTPS |
 
 Секреты только в env / локальном `.env`. В git не коммитить.
