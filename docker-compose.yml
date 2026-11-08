@@ -1,0 +1,25 @@
+# docker compose up --build
+# без ключа модели: make up-mock
+
+services:
+  mono:
+    build: .
+    image: mono:local
+    ports:
+      - "${MONO_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      MONO_ADDR: ":8080"
+    user: "${MONO_UID:-1000}:${MONO_GID:-1000}"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./sources.yaml:/app/sources.yaml:ro
+      - ./data:/app/data:ro
+      - ./runs:/app/runs
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo >/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 3s

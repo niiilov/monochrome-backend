@@ -22,6 +22,14 @@ python tools/check_mono.py ./out
 
 HTTP API: `./bin/monod` (см. `cmd/monod`).
 
+То же API через Docker Compose (ключ из `.env`, прогоны в `./runs`):
+
+```bash
+make up          # http://localhost:8080
+make up-mock     # без сети и без ключа
+make down
+```
+
 Обязательные сценарии:
 
 ```bash
@@ -60,7 +68,9 @@ LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.
 
 На push и pull request GitHub Actions (`.github/workflows/ci.yml`) выполняет `go vet`, `go test ./...`, сборку `mono` и `monod`, `scripts/check_secrets.sh` и сборку Docker-образа. Локально то же самое без образа: `make ci`.
 
-Push в `main` после успешных проверок публикует образ в GHCR: `ghcr.io/<owner>/cyber-digest` с тегами `latest` и полного SHA. В образ не попадают `.env` и `data/`.
+Push в `main` после успешных проверок публикует образ в GHCR: `ghcr.io/<owner>/cyber-digest` с тегами `latest` и полного SHA. В образ не попадают `.env` и `data/`. Локальный аналог — `make up`.
+
+Готовый образ:
 
 ```bash
 docker run --rm -p 8080:8080 ghcr.io/niiilov/cyber-digest

@@ -1,4 +1,4 @@
-.PHONY: build test vet lint tidy run test-mandatory check test-live ci docker
+.PHONY: build test vet lint tidy run test-mandatory check test-live ci docker up up-mock down
 
 build:
 	go build -o bin/mono ./cmd/mono
@@ -36,3 +36,12 @@ ci: vet test
 
 docker:
 	docker build -t mono:local .
+
+up:
+	docker compose up --build
+
+up-mock:
+	docker compose run --service-ports --rm --name mono-mock mono --mock
+
+down:
+	docker compose down
