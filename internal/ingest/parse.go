@@ -80,10 +80,11 @@ func (l *fileLoader) fromValue(v any, st *loadState, where string) ([]domain.Art
 	case []any:
 		return l.fromArray(t, st, where)
 	case map[string]any:
-		if !looksLikeArticle(t) {
-			if inner, ok := unwrap(t); ok {
-				return l.fromValue(inner, st, where)
-			}
+		// A dataset object can carry a description string and still wrap the
+		// real records in items/articles. description is a text alias, so the
+		// wrapper looks like one article and would otherwise hide the list.
+		if inner, ok := unwrap(t); ok && (!looksLikeArticle(t) || articleList(inner)) {
+			return l.fromValue(inner, st, where)
 		}
 		return single(l.fromObject(t, st, where))
 	default:
@@ -136,6 +137,11 @@ func (l *fileLoader) accept(fields map[string]string, present map[string]bool, s
 		readErr = "нет идентификатора"
 	} else {
 		st.seen[id] = true
+	}
+	if readErr == "" {
+		if msg := fetchError(fields, present, l.fields.isMissing); msg != "" {
+			readErr = msg
+		}
 	}
 	article := domain.Article{
 		ID:            id,
@@ -343,6 +349,21 @@ func looksLikeCSV(text string) bool {
 	return false
 }
 
+// articleList is a non-empty array of objects that look like publications.
+func articleList(v any) bool {
+	arr, ok := v.([]any)
+	if !ok || len(arr) == 0 {
+		return false
+	}
+	for _, item := range arr {
+		raw, ok := item.(map[string]any)
+		if !ok || !looksLikeArticle(raw) {
+			return false
+		}
+	}
+	return true
+}
+
 func looksLikeArticle(raw map[string]any) bool {
 	_, present := recordFromMap(raw)
 	for _, key := range []string{"id", "title", "text"} {
@@ -353,6 +374,17 @@ func looksLikeArticle(raw map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func fetchError(fields map[string]string, present map[string]bool, missing func(string) bool) string {
+	if !present["error"] {
+		return ""
+	}
+	msg := strings.TrimSpace(fields["error"])
+	if msg == "" || missing(msg) {
+		return ""
+	}
+	return msg
 }
 
 func unwrap(raw map[string]any) (any, bool) {

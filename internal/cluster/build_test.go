@@ -382,6 +382,29 @@ func TestVendorBeatsEarlierMedia(t *testing.T) {
 	}
 }
 
+func TestQuotedProductLinksDifferentEntityLists(t *testing.T) {
+	arts := map[string]domain.Article{
+		"vuln": article("vuln", "СтражСофт", domain.SourceVendor, at(2026, 11, 5, 19, 0), "В веб-интерфейсе «СтражШлюз» уязвимость, исправление в версии 4.6.2."),
+		"scan": article("scan", "КиберВестник", domain.SourceMedia, at(2026, 11, 6, 7, 30), "За ночь сканировали «СтражШлюз»: около 40 тысяч запросов."),
+	}
+	mentions := []domain.Mention{
+		mention("M-vuln-1", "vuln", "СтражСофт", "уязвимость в веб-интерфейсе"),
+		mention("M-scan-1", "scan", "Лаборатория Ориона", "массовое сканирование интернета"),
+	}
+	m := mock.New()
+	m.When("cluster_confirm", "", confirmJSON(t, true, "Одна уязвимость СтражШлюз и сканирование того же продукта", nil))
+	res, err := BuildResult(context.Background(), m, mentions, arts, nil, config.Default().Cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.CallsFor("cluster_confirm") != 1 {
+		t.Fatalf("calls %d", m.CallsFor("cluster_confirm"))
+	}
+	if len(res.Events) != 1 || len(res.Events[0].ArticleIDs) != 2 {
+		t.Fatalf("%+v", res.Events)
+	}
+}
+
 func TestThresholdAndPairLimit(t *testing.T) {
 	arts := map[string]domain.Article{
 		"a": article("a", "Хакер", domain.SourceMedia, at(2026, 11, 7, 8, 0), "Текст про Альфа-Север."),
@@ -552,7 +575,7 @@ func TestPromptsHaveNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "3" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatal("long dash or version")
 	}
 	if strings.Contains(system, "получател") || strings.Contains(user, "similarity_threshold") {

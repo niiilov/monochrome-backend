@@ -10,7 +10,19 @@ import (
 	"mono/internal/textutil"
 )
 
-var cveRE = regexp.MustCompile(`(?i)\bCVE-\d{4}-\d{4,7}\b`)
+var (
+	cveRE        = regexp.MustCompile(`(?i)\bCVE-\d{4}-\d{4,7}\b`)
+	quotedNameRE = regexp.MustCompile(`«([^»]{3,80})»`)
+)
+
+// weakEntity is a folded token that is too common to glue two stories together.
+var weakEntity = map[string]bool{
+	"система": true, "системы": true, "данные": true, "клиенты": true,
+	"клиентов": true, "компания": true, "компании": true, "интернет": true,
+	"безопасность": true, "информация": true, "уязвимость": true,
+	"обновление": true, "организация": true, "организации": true,
+	"источник": true, "сообщение": true,
+}
 
 type bag struct {
 	entities []string
@@ -150,6 +162,11 @@ func pairScore(a, b bag) float64 {
 	if sharedCVE && score < 0.8 {
 		score = 0.8
 	}
+	// A shared product name is enough to ask the model. The confirm step
+	// still decides whether the mentions are one incident.
+	if distinctiveShared(a.entities, b.entities) && score < 0.6 {
+		score = 0.6
+	}
 	if score > 1 {
 		return 1
 	}
@@ -243,6 +260,41 @@ func unique(items []string) []string {
 		return nil
 	}
 	return out
+}
+
+func distinctiveShared(a, b []string) bool {
+	sb := toSet(b)
+	for x := range toSet(a) {
+		if _, ok := sb[x]; !ok {
+			continue
+		}
+		if distinctiveName(x) {
+			return true
+		}
+	}
+	return false
+}
+
+func distinctiveName(s string) bool {
+	if strings.Contains(s, " ") || weakEntity[s] {
+		return false
+	}
+	return len([]rune(s)) >= 6
+}
+
+// quotedNames pulls product and organisation names out of «...» so two
+// articles about one product stay candidates even when the extracted
+// entity lists use different words.
+func quotedNames(text string) []string {
+	var out []string
+	for _, m := range quotedNameRE.FindAllStringSubmatch(text, -1) {
+		key := foldKey(m[1])
+		if !distinctiveName(key) {
+			continue
+		}
+		out = append(out, key)
+	}
+	return unique(out)
 }
 
 func normEntities(items []string) []string {

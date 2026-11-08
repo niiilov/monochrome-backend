@@ -299,6 +299,39 @@ func TestJSONLDirectoryAndCommaCSV(t *testing.T) {
 	}
 }
 
+func TestDatasetWrapperWithDescription(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "news.json")
+	body := `{
+	  "dataset": "train",
+	  "control_time": "2026-11-06T10:00:00+03:00",
+	  "description": "Учебный набор: описание файла, не текст новости.",
+	  "items": [
+	    {"id":"TR-01","title":"Атака","text":"Склады остановлены.","source":"КиберВестник","url":"https://kibervestnik.example/1","published_at":"2026-11-05T14:20:00+03:00","missing":[],"error":null},
+	    {"id":"TR-28","title":"Облако","text":null,"source":"КиберВестник","url":"https://kibervestnik.example/2","published_at":"2026-11-06T09:40:00+03:00","missing":["text"],"error":"Не удалось загрузить текст"}
+	  ]
+	}`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	arts, journal, err := LoadDataset(context.Background(), []string{path}, config.Default().Ingest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(arts) != 2 {
+		t.Fatalf("записей %d, журнал %+v", len(arts), journal)
+	}
+	if arts[0].ID != "TR-01" || arts[0].Text != "Склады остановлены." || arts[0].ReadError != "" {
+		t.Fatalf("TR-01: %+v", arts[0])
+	}
+	if arts[1].ID != "TR-28" || arts[1].ReadError != "Не удалось загрузить текст" {
+		t.Fatalf("TR-28: %+v", arts[1])
+	}
+	if len(journal) != 1 || journal[0].ID != "TR-28" || journal[0].ReasonCode != "read_error" {
+		t.Fatalf("journal: %+v", journal)
+	}
+}
+
 func TestMissingPath(t *testing.T) {
 	_, _, err := LoadDataset(context.Background(), []string{filepath.Join(t.TempDir(), "nope.json")}, config.Default().Ingest)
 	if err == nil {

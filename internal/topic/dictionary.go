@@ -312,6 +312,7 @@ func buildDictionary() []entry {
 	g = groupVuln
 	add(&list, g, "взлом", false, "взлом")
 	add(&list, g, "компрометация учётной записи", false, "компрометация учётной записи")
+	add(&list, g, "компрометация", false, "компрометация", "скомпрометировано", "скомпрометированное")
 	add(&list, g, "подбор пароля", false, "подбор пароля")
 	add(&list, g, "brute force", false, "brute force")
 	add(&list, g, "credential stuffing", false, "credential stuffing")

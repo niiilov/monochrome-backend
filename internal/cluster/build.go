@@ -167,7 +167,7 @@ func BuildResult(ctx context.Context, c llm.Client, mentions []domain.Mention, a
 		return res, nil
 	}
 
-	cands := candidates(kept, cfg)
+	cands := candidates(kept, arts, cfg)
 	var links []link
 	groups := newUF(len(kept))
 	if len(cands) > 0 && c == nil {
@@ -234,10 +234,15 @@ func BuildResult(ctx context.Context, c llm.Client, mentions []domain.Mention, a
 	return res, nil
 }
 
-func candidates(mentions []domain.Mention, cfg config.Cluster) []candidate {
+func candidates(mentions []domain.Mention, arts map[string]domain.Article, cfg config.Cluster) []candidate {
 	bags := make([]bag, len(mentions))
 	for i, m := range mentions {
 		bags[i] = mentionBag(m)
+		if arts == nil {
+			continue
+		}
+		a := arts[m.ArticleID]
+		bags[i].entities = unique(append(bags[i].entities, quotedNames(a.Title+"\n"+a.Text)...))
 	}
 	var all []candidate
 	for i := 0; i < len(mentions); i++ {
