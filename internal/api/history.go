@@ -1,11 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"mono/internal/domain"
@@ -42,7 +42,12 @@ func (s *Server) history(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "статус должен быть running, done или failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, historyResponse{Runs: s.listHistory(want)})
+	items, err := s.listHistory(r.Context(), currentUser(r).ID, want)
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, historyResponse{Runs: items})
 }
 
 type historySnap struct {
@@ -51,16 +56,19 @@ type historySnap struct {
 	started time.Time
 }
 
-func (s *Server) listHistory(status string) []historyItem {
-	s.mu.RLock()
-	snaps := make([]historySnap, 0, len(s.runs))
-	for _, run := range s.runs {
-		if status != "" && run.Status != status {
-			continue
-		}
-		snaps = append(snaps, historySnap{view: run.view(), dir: run.Params.OutDir, started: run.StartedAt})
+func (s *Server) listHistory(ctx context.Context, userID, status string) ([]historyItem, error) {
+	runs, err := s.store.ListRuns(ctx, userID, status)
+	if err != nil {
+		return nil, err
 	}
-	s.mu.RUnlock()
+	snaps := make([]historySnap, 0, len(runs))
+	for _, run := range runs {
+		var view runView
+		if err := json.Unmarshal(run.Snapshot, &view); err != nil {
+			return nil, err
+		}
+		snaps = append(snaps, historySnap{view: view, dir: filepath.Join(s.runsDir, run.ID), started: run.StartedAt})
+	}
 
 	items := make([]historyItem, 0, len(snaps))
 	for _, snap := range snaps {
@@ -85,13 +93,7 @@ func (s *Server) listHistory(status string) []historyItem {
 		}
 		items = append(items, item)
 	}
-	sort.Slice(items, func(i, j int) bool {
-		if !items[i].started.Equal(items[j].started) {
-			return items[i].started.After(items[j].started)
-		}
-		return items[i].RunID > items[j].RunID
-	})
-	return items
+	return items, nil
 }
 
 func readHistoryReport(dir string) (events int, start, end string, ok bool) {

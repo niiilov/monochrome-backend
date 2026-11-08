@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN keywords TEXT[] NOT NULL DEFAULT '{}';

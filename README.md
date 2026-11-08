@@ -54,6 +54,9 @@ LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.
 | `LLM_MODEL` | имя модели |
 | `LLM_PROXY` / `LLM_PROXY_FILE` | опциональный HTTP-прокси |
 | `SMTP_*`, `ALLOWED_TEST_RECIPIENTS` | рассылка (allowlist) |
+| `DATABASE_URL` | PostgreSQL для аккаунтов, сессий и списка выпусков. Без неё `monod` не запускается |
+| `APP_PUBLIC_URL` | публичный адрес для ссылки подтверждения почты |
+| `AUTH_COOKIE_SECURE` | `true`, если сайт открывается по HTTPS |
 
 Секреты только в env / локальном `.env`. В git не коммитить.
 

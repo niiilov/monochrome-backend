@@ -17,6 +17,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /out/mono /out/monod /usr/local/bin/
 COPY config.yaml sources.yaml ./
+COPY testdata/train/publications.json ./testdata/train/publications.json
 USER mono
 EXPOSE 8080
 ENTRYPOINT ["monod"]
