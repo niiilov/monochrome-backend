@@ -92,6 +92,7 @@ type storedRequest struct {
 	DatasetPath string    `json:"dataset_path"`
 	ControlTime time.Time `json:"control_time"`
 	ExtraPaths  []string  `json:"extra_paths,omitempty"`
+	Keywords    []string  `json:"keywords,omitempty"`
 	ParentRunID string    `json:"parent_run_id,omitempty"`
 }
 
@@ -243,6 +244,7 @@ func (s *Server) launch(id, dir string, params domain.RunParams, parent, userID 
 		DatasetPath: params.DatasetPath,
 		ControlTime: params.ControlTime,
 		ExtraPaths:  append([]string(nil), params.ExtraPaths...),
+		Keywords:    append([]string(nil), params.Keywords...),
 		ParentRunID: parent,
 	}
 	if err := writeJSONFile(filepath.Join(dir, "request.json"), req); err != nil {
@@ -355,7 +357,13 @@ func (s *Server) lookup(ctx context.Context, userID, id string) (runView, domain
 	if err = json.Unmarshal(run.Request, &req); err != nil {
 		return view, domain.RunParams{}, err
 	}
-	return view, domain.RunParams{OutDir: filepath.Join(s.runsDir, id), DatasetPath: req.DatasetPath, ControlTime: req.ControlTime, ExtraPaths: req.ExtraPaths}, nil
+	return view, domain.RunParams{
+		OutDir:      filepath.Join(s.runsDir, id),
+		DatasetPath: req.DatasetPath,
+		ControlTime: req.ControlTime,
+		ExtraPaths:  req.ExtraPaths,
+		Keywords:    append([]string(nil), req.Keywords...),
+	}, nil
 }
 
 func (s *Server) freshID() string {

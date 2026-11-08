@@ -517,7 +517,7 @@ func (w *work) rank(ctx context.Context) error {
 		return fmt.Errorf("оценка событий: %w", err)
 	}
 	selStart := w.begin("select", len(res.Events))
-	selected := rank.Select(res.Events, arts, w.deps.Config.Rank.MaxEvents)
+	selected := rank.SelectPreferred(res.Events, arts, w.params.Keywords, w.deps.Config.Rank.MaxEvents)
 	rank.ApplyJournal(w.journal, selected, res.Errors)
 	w.finish("select", selStart, len(res.Events))
 	w.events = selected

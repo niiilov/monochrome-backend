@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"mono/internal/domain"
 	"mono/internal/mailer"
@@ -23,9 +25,41 @@ type inputError struct {
 func (e *inputError) Error() string { return e.msg }
 
 type createBody struct {
-	Dataset     string `json:"dataset"`
-	DatasetPath string `json:"dataset_path"`
-	ControlTime string `json:"control_time"`
+	Dataset     string           `json:"dataset"`
+	DatasetPath string           `json:"dataset_path"`
+	ControlTime string           `json:"control_time"`
+	Keywords    flexibleKeywords `json:"keywords"`
+}
+
+// flexibleKeywords accepts the form contract: a newline- or comma-separated
+// string, or a JSON array of those strings.
+type flexibleKeywords []string
+
+func (k *flexibleKeywords) UnmarshalJSON(raw []byte) error {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	if raw[0] == '"' {
+		var text string
+		if err := json.Unmarshal(raw, &text); err != nil {
+			return err
+		}
+		*k = splitKeywordValues([]string{text})
+		return nil
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return err
+	}
+	*k = splitKeywordValues(list)
+	return nil
+}
+
+type parsedCreate struct {
+	dataset  string
+	control  string
+	keywords []string
 }
 
 type articleBody struct {
@@ -57,27 +91,27 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "не удалось создать каталог прогона")
 		return
 	}
-	dataset, control, err := readCreate(r, dir)
+	input, err := readCreate(r, dir)
 	if err == nil {
-		err = s.allowedInput(dataset, dir)
+		err = s.allowedInput(input.dataset, dir)
 	}
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
 		return
 	}
-	if err := checkDataset(dataset); err != nil {
+	if err := checkDataset(input.dataset); err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
 		return
 	}
-	when, err := parseControl(control)
+	when, err := parseControl(input.control)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
 		return
 	}
-	if err := s.launch(id, dir, domain.RunParams{DatasetPath: dataset, ControlTime: when}, "", currentUser(r).ID); err != nil {
+	if err := s.launch(id, dir, domain.RunParams{DatasetPath: input.dataset, ControlTime: when, Keywords: input.keywords}, "", currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -232,6 +266,7 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 		DatasetPath: params.DatasetPath,
 		ControlTime: params.ControlTime,
 		ExtraPaths:  extras,
+		Keywords:    append([]string(nil), params.Keywords...),
 	}, view.RunID, currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -345,36 +380,92 @@ func (s *Server) appendLog(path string, entry mailer.Entry) error {
 	return err
 }
 
-func readCreate(r *http.Request, dir string) (string, string, error) {
+func readCreate(r *http.Request, dir string) (parsedCreate, error) {
+	var out parsedCreate
+	var words []string
 	ct := r.Header.Get("Content-Type")
 	switch {
 	case strings.HasPrefix(ct, "multipart/form-data"):
 		if err := r.ParseMultipartForm(maxUpload); err != nil {
-			return "", "", &inputError{msg: "файл слишком большой или форма сломана"}
+			return parsedCreate{}, &inputError{msg: "файл слишком большой или форма сломана"}
 		}
-		control := r.FormValue("control_time")
+		out.control = r.FormValue("control_time")
+		words = r.Form["keywords"]
 		file, hdr, err := r.FormFile("file")
 		if err == nil {
 			defer file.Close()
-			path, saveErr := saveReader(dir, hdr.Filename, file)
-			return path, control, saveErr
+			out.dataset, err = saveReader(dir, hdr.Filename, file)
+			if err != nil {
+				return parsedCreate{}, err
+			}
+		} else if !errors.Is(err, http.ErrMissingFile) {
+			return parsedCreate{}, &inputError{msg: "не удалось прочитать файл"}
+		} else {
+			out.dataset = firstText(r.FormValue("dataset"), r.FormValue("dataset_path"))
 		}
-		if !errors.Is(err, http.ErrMissingFile) {
-			return "", "", &inputError{msg: "не удалось прочитать файл"}
-		}
-		return firstText(r.FormValue("dataset"), r.FormValue("dataset_path")), control, nil
 	case strings.Contains(ct, "application/json"):
 		var body createBody
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
-			return "", "", &inputError{msg: "некорректный JSON"}
+			return parsedCreate{}, &inputError{msg: "некорректный JSON"}
 		}
-		return firstText(body.Dataset, body.DatasetPath), body.ControlTime, nil
+		out.dataset = firstText(body.Dataset, body.DatasetPath)
+		out.control = body.ControlTime
+		words = body.Keywords
 	default:
 		if err := r.ParseForm(); err != nil {
-			return "", "", &inputError{msg: "некорректная форма"}
+			return parsedCreate{}, &inputError{msg: "некорректная форма"}
 		}
-		return firstText(r.FormValue("dataset"), r.FormValue("dataset_path")), r.FormValue("control_time"), nil
+		out.dataset = firstText(r.FormValue("dataset"), r.FormValue("dataset_path"))
+		out.control = r.FormValue("control_time")
+		words = r.Form["keywords"]
 	}
+	keywords, err := normalizeKeywords(splitKeywordValues(words))
+	if err != nil {
+		return parsedCreate{}, err
+	}
+	out.keywords = keywords
+	return out, nil
+}
+
+func splitKeywordValues(values []string) []string {
+	var out []string
+	for _, value := range values {
+		value = strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(value)
+		out = append(out, strings.FieldsFunc(value, func(r rune) bool {
+			return r == '\n' || r == ','
+		})...)
+	}
+	return out
+}
+
+func normalizeKeywords(raw []string) ([]string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(raw))
+	seen := map[string]struct{}{}
+	for _, keyword := range raw {
+		keyword = strings.TrimSpace(keyword)
+		if keyword == "" {
+			continue
+		}
+		if utf8.RuneCountInString(keyword) > 80 {
+			return nil, &inputError{msg: "ключевое слово должно содержать от 1 до 80 символов"}
+		}
+		key := strings.ReplaceAll(strings.ToLower(keyword), "ё", "е")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, keyword)
+	}
+	if len(out) > 12 {
+		return nil, &inputError{msg: "можно указать до 12 ключевых слов"}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 func readArticle(r *http.Request, dir string) (string, error) {

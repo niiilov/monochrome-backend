@@ -250,6 +250,105 @@ func TestPreviewExportAndAllowlist(t *testing.T) {
 	}
 }
 
+func TestCreateStoresKeywordsAndReusesThem(t *testing.T) {
+	stub := &stubRunner{}
+	ts, _ := newAPI(t, stub, []string{"ok@example.com"}, true)
+	dataset := fixture("testdata/synthetic/articles.json")
+	body := &bytes.Buffer{}
+	form := multipart.NewWriter(body)
+	if err := form.WriteField("dataset", dataset); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.WriteField("control_time", "2026-11-07T12:00:00+03:00"); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.WriteField("keywords", "утечка\nransomware, CVE, ransomware"); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.Post(ts.URL+"/api/v1/runs", form.FormDataContentType(), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusAccepted {
+		t.Fatalf("create %d %s", res.StatusCode, raw)
+	}
+	var created map[string]any
+	if err := json.Unmarshal(raw, &created); err != nil {
+		t.Fatal(err)
+	}
+	id := created["run_id"].(string)
+	if waitDone(t, ts.URL, id)["status"] != statusDone {
+		t.Fatal(id)
+	}
+	stub.mu.Lock()
+	if len(stub.calls) != 1 || strings.Join(stub.calls[0].Keywords, "|") != "утечка|ransomware|CVE" {
+		t.Fatalf("keywords %+v", stub.calls)
+	}
+	stored := string(mustRead(t, filepath.Join(stub.calls[0].OutDir, "request.json")))
+	stub.mu.Unlock()
+	if !strings.Contains(stored, `"утечка"`) || !strings.Contains(stored, `"CVE"`) {
+		t.Fatalf("request.json %s", stored)
+	}
+
+	code, added, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs/"+id+"/articles",
+		`{"title":"Дополнение","text":"Новая публикация.","source":"демо"}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("article %d %s", code, raw)
+	}
+	next := added["run_id"].(string)
+	if waitDone(t, ts.URL, next)["status"] != statusDone {
+		t.Fatal(next)
+	}
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
+	if len(stub.calls) != 2 || strings.Join(stub.calls[1].Keywords, "|") != "утечка|ransomware|CVE" {
+		t.Fatalf("restart keywords %+v", stub.calls)
+	}
+}
+
+func TestCreateRejectsKeywordLimit(t *testing.T) {
+	ts, _ := newAPI(t, &stubRunner{}, []string{"ok@example.com"}, true)
+	dataset := fixture("testdata/synthetic/articles.json")
+	words := make([]string, 13)
+	for i := range words {
+		words[i] = fmt.Sprintf("word%d", i)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"dataset":      dataset,
+		"control_time": "2026-11-07T12:00:00+03:00",
+		"keywords":     words,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, doc, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", string(payload))
+	if code != http.StatusBadRequest {
+		t.Fatalf("limit %d %s", code, raw)
+	}
+	if doc["error"] != "можно указать до 12 ключевых слов" {
+		t.Fatalf("error %+v", doc)
+	}
+
+	long := strings.Repeat("я", 81)
+	payload, err = json.Marshal(map[string]any{
+		"dataset":      dataset,
+		"control_time": "2026-11-07T12:00:00+03:00",
+		"keywords":     []string{long},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, doc, raw = doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", string(payload))
+	if code != http.StatusBadRequest || doc["error"] != "ключевое слово должно содержать от 1 до 80 символов" {
+		t.Fatalf("length %d %s", code, raw)
+	}
+}
+
 func TestPublicationCannotChangeRecipients(t *testing.T) {
 	stub := &stubRunner{}
 	ts, sender := newAPI(t, stub, []string{"ok@example.com"}, false)

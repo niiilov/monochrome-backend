@@ -196,11 +196,14 @@ type DigestModel struct {
 }
 
 // RunParams are the inputs of one pipeline run.
+// Keywords are optional terms from the request. Events whose articles contain
+// one of them are ordered ahead of the other on-topic events.
 type RunParams struct {
 	DatasetPath string    `json:"dataset_path"`
 	ControlTime time.Time `json:"control_time"`
 	OutDir      string    `json:"out_dir"`
 	ExtraPaths  []string  `json:"extra_paths"`
+	Keywords    []string  `json:"keywords,omitempty"`
 }
 
 // RunState is the in-memory result of a pipeline run.

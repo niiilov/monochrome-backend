@@ -8,6 +8,8 @@
 //
 // Select orders by Total, then by more independent sources, then by a later
 // publication time, then by event ID. It does not read a search rank.
+// SelectPreferred uses the same order after placing events that contain a
+// user keyword ahead of the others.
 // ApplyJournal writes the digest reason for the chosen events and
 // lower_priority, with place and score, for the rest.
 package rank

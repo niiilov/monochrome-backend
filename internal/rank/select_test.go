@@ -8,6 +8,33 @@ import (
 	"mono/internal/journal"
 )
 
+func TestSelectPreferredPutsKeywordMatchesFirst(t *testing.T) {
+	events := []domain.Event{
+		{ID: "E-high", Total: 3, ArticleIDs: []string{"high"}, PrimaryArticleID: "high"},
+		{ID: "E-mid", Total: 2, ArticleIDs: []string{"mid"}, PrimaryArticleID: "mid"},
+		{ID: "E-hit", Total: 0.5, ArticleIDs: []string{"hit"}, PrimaryArticleID: "hit"},
+	}
+	arts := map[string]domain.Article{
+		"high": {ID: "high", Title: "Крупная кибератака", Text: "Пострадали банки."},
+		"mid":  {ID: "mid", Title: "Утечка данных", Text: "Скомпрометированы записи."},
+		"hit":  {ID: "hit", Title: "Шифровальщик в сети", Text: "Атака ransomware остановила завод."},
+	}
+	got := SelectPreferred(events, arts, []string{"ransomware"}, 2)
+	if idsOf(got)[0] != "E-hit" || !got[0].Selected || got[0].Rank != 1 {
+		t.Fatalf("keyword event %+v", got[0])
+	}
+	if idsOf(got)[1] != "E-high" || !got[1].Selected || got[1].Rank != 2 {
+		t.Fatalf("second %+v", got[1])
+	}
+	if got[2].Selected || got[2].Rank != 0 {
+		t.Fatalf("rest %+v", got[2])
+	}
+	plain := Select(events, arts, 2)
+	if idsOf(plain)[0] != "E-high" {
+		t.Fatalf("plain order %v", idsOf(plain))
+	}
+}
+
 func TestSelectOrdersByTotalSourcesDateAndID(t *testing.T) {
 	later := time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC)
 	earlier := later.Add(-2 * time.Hour)
