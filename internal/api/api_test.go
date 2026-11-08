@@ -26,6 +26,7 @@ import (
 	"mono/internal/mailer"
 	"mono/internal/runner"
 	"mono/internal/runner/fake"
+	"mono/internal/storage"
 	"mono/internal/textutil"
 )
 
@@ -448,8 +449,28 @@ func newAPI(t *testing.T, r runner.Runner, allow []string, dry bool) (*httptest.
 		Password:  "super-secret-smtp",
 	}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	m.SetSender(sender)
-	service := New(r, m, t.TempDir(), slog.New(slog.NewJSONHandler(io.Discard, nil)))
-	ts := httptest.NewServer(service.Handler())
+	db := newMemoryStore()
+	token := strings.Repeat("a", 64)
+	_, err := db.Register(context.Background(), storage.User{ID: "test-user", Email: "test@example.com"}, "unused", tokenHash(token), time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.VerifyEmail(context.Background(), tokenHash(token)); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.CreateSession(context.Background(), "test-user", tokenHash(token), time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(r, m, t.TempDir(), slog.New(slog.NewJSONHandler(io.Discard, nil)), db, Options{DatasetRoots: []string{fixture("testdata")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := service.Handler()
+	// Legacy pipeline tests run as a seeded user; auth tests exercise real login separately.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Set("Authorization", "Bearer "+token)
+		handler.ServeHTTP(w, r)
+	}))
 	t.Cleanup(func() {
 		ts.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

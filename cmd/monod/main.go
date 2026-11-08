@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"mono/internal/mailer"
 	"mono/internal/runner"
 	"mono/internal/runner/fake"
+	"mono/internal/storage"
 )
 
 func main() {
@@ -42,6 +44,7 @@ func run(args []string) error {
 	if *fakeMode && *mockMode {
 		return errors.New("флаги --fake и --mock вместе не используются")
 	}
+	loadDotEnv(".env.local")
 	loadDotEnv(".env")
 	raw, err := os.ReadFile(*configPath)
 	if err != nil {
@@ -66,7 +69,24 @@ func run(args []string) error {
 		}
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	service := api.New(pipeline, mailer.New(cfg.Mail, log), *runsDir, log)
+	startup, cancelStartup := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelStartup()
+	db, err := storage.Open(startup, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	secureCookies := false
+	if raw := os.Getenv("AUTH_COOKIE_SECURE"); raw != "" {
+		secureCookies, err = strconv.ParseBool(raw)
+		if err != nil {
+			return errors.New("AUTH_COOKIE_SECURE должен быть true или false")
+		}
+	}
+	service, err := api.New(pipeline, mailer.New(cfg.Mail, log), *runsDir, log, db, api.Options{SecureCookies: secureCookies, DatasetRoots: []string{"data", "testdata"}, PublicURL: os.Getenv("APP_PUBLIC_URL")})
+	if err != nil {
+		return fmt.Errorf("инициализация API: %w", err)
+	}
 	httpServer := &http.Server{
 		Handler:           service.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,

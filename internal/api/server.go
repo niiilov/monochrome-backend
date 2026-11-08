@@ -17,6 +17,7 @@ import (
 	"mono/internal/domain"
 	"mono/internal/mailer"
 	"mono/internal/runner"
+	"mono/internal/storage"
 	"mono/internal/timeutil"
 )
 
@@ -30,10 +31,15 @@ const (
 
 // Server is the HTTP API. The runner is injected so tests and cmd/monod can swap it.
 type Server struct {
-	runner  runner.Runner
-	mail    *mailer.Mailer
-	runsDir string
-	log     *slog.Logger
+	runner        runner.Runner
+	mail          *mailer.Mailer
+	runsDir       string
+	log           *slog.Logger
+	store         storage.Repository
+	secureCookies bool
+	authLimit     authLimiter
+	datasetRoots  []string
+	publicURL     string
 
 	mu     sync.RWMutex
 	fileMu sync.Mutex
@@ -45,6 +51,7 @@ type Server struct {
 }
 
 type runRec struct {
+	UserID     string
 	ID         string
 	Status     string
 	Stage      string
@@ -87,26 +94,50 @@ type storedRequest struct {
 	ParentRunID string    `json:"parent_run_id,omitempty"`
 }
 
-// New stores runs under runsDir and serves until Shutdown.
-func New(r runner.Runner, m *mailer.Mailer, runsDir string, log *slog.Logger) *Server {
+// Options configures HTTP sessions and trusted server-side dataset directories.
+type Options struct {
+	SecureCookies bool
+	DatasetRoots  []string
+	PublicURL     string
+}
+
+// New requires persistent storage; authentication cannot be disabled.
+func New(r runner.Runner, m *mailer.Mailer, runsDir string, log *slog.Logger, db storage.Repository, opts Options) (*Server, error) {
+	if db == nil {
+		return nil, errors.New("требуется PostgreSQL")
+	}
+	publicURL, err := validatePublicURL(opts.PublicURL)
+	if err != nil {
+		return nil, err
+	}
 	if log == nil {
 		log = slog.Default()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Server{
-		runner:  r,
-		mail:    m,
-		runsDir: runsDir,
-		log:     log,
-		runs:    map[string]*runRec{},
-		ctx:     ctx,
-		cancel:  cancel,
+		runner:        r,
+		mail:          m,
+		runsDir:       runsDir,
+		log:           log,
+		store:         db,
+		secureCookies: opts.SecureCookies,
+		datasetRoots:  append([]string(nil), opts.DatasetRoots...),
+		publicURL:     publicURL,
+		runs:          map[string]*runRec{},
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 	if err := os.MkdirAll(runsDir, 0o755); err != nil {
-		log.Error("каталог прогонов", "err", err.Error())
+		cancel()
+		return nil, fmt.Errorf("каталог прогонов: %w", err)
 	}
-	s.loadExisting()
-	return s
+	startup, done := context.WithTimeout(ctx, 10*time.Second)
+	defer done()
+	if err := db.RecoverRuns(startup); err != nil {
+		cancel()
+		return nil, err
+	}
+	return s, nil
 }
 
 // Handler is the HTTP API.
@@ -114,18 +145,26 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/healthz", s.health)
-	mux.HandleFunc("POST /api/v1/runs", s.create)
-	mux.HandleFunc("GET /api/v1/runs", s.history)
-	mux.HandleFunc("GET /api/v1/runs/{id}", s.status)
-	mux.HandleFunc("GET /api/v1/runs/{id}/digest", s.digest)
-	mux.HandleFunc("GET /api/v1/runs/{id}/post", s.post)
-	mux.HandleFunc("GET /api/v1/runs/{id}/email", s.email)
-	mux.HandleFunc("GET /api/v1/runs/{id}/journal", s.journal)
-	mux.HandleFunc("GET /api/v1/runs/{id}/report", s.report)
-	mux.HandleFunc("GET /api/v1/runs/{id}/export", s.export)
-	mux.HandleFunc("POST /api/v1/runs/{id}/send", s.send)
-	mux.HandleFunc("POST /api/v1/runs/{id}/articles", s.articles)
-	return mux
+	mux.HandleFunc("POST /api/v1/auth/register", s.register)
+	mux.HandleFunc("POST /api/v1/auth/login", s.login)
+	mux.HandleFunc("GET /api/v1/auth/verify-email", s.verificationPage)
+	mux.HandleFunc("POST /api/v1/auth/verify-email", s.verifyEmail)
+	mux.HandleFunc("POST /api/v1/auth/resend-verification", s.resendVerification)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.authenticated(s.logout))
+	mux.HandleFunc("GET /api/v1/auth/me", s.authenticated(s.me))
+	mux.HandleFunc("PATCH /api/v1/auth/me", s.authenticated(s.updateProfile))
+	mux.HandleFunc("POST /api/v1/runs", s.authenticated(s.create))
+	mux.HandleFunc("GET /api/v1/runs", s.authenticated(s.history))
+	mux.HandleFunc("GET /api/v1/runs/{id}", s.authenticated(s.status))
+	mux.HandleFunc("GET /api/v1/runs/{id}/digest", s.authenticated(s.digest))
+	mux.HandleFunc("GET /api/v1/runs/{id}/post", s.authenticated(s.post))
+	mux.HandleFunc("GET /api/v1/runs/{id}/email", s.authenticated(s.email))
+	mux.HandleFunc("GET /api/v1/runs/{id}/journal", s.authenticated(s.journal))
+	mux.HandleFunc("GET /api/v1/runs/{id}/report", s.authenticated(s.report))
+	mux.HandleFunc("GET /api/v1/runs/{id}/export", s.authenticated(s.export))
+	mux.HandleFunc("POST /api/v1/runs/{id}/send", s.authenticated(s.send))
+	mux.HandleFunc("POST /api/v1/runs/{id}/articles", s.authenticated(s.articles))
+	return sameOrigin(mux, s.publicURL)
 }
 
 // Shutdown cancels in-flight runs and waits for them.
@@ -144,7 +183,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	if err := s.store.Ping(ctx); err != nil {
+		s.databaseError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -173,7 +218,7 @@ func (s *Server) reserve() (string, string, error) {
 	return "", "", last
 }
 
-func (s *Server) launch(id, dir string, params domain.RunParams, parent string) error {
+func (s *Server) launch(id, dir string, params domain.RunParams, parent, userID string) error {
 	if err := s.ctx.Err(); err != nil {
 		return errors.New("сервер останавливается")
 	}
@@ -182,6 +227,7 @@ func (s *Server) launch(id, dir string, params domain.RunParams, parent string) 
 	}
 	params.OutDir = dir
 	rec := &runRec{
+		UserID:    userID,
 		ID:        id,
 		Status:    statusRunning,
 		StartedAt: time.Now(),
@@ -189,12 +235,26 @@ func (s *Server) launch(id, dir string, params domain.RunParams, parent string) 
 		ParentID:  parent,
 		Stages:    []stageProg{},
 	}
-	if err := writeJSONFile(filepath.Join(dir, "request.json"), storedRequest{
+	req := storedRequest{
 		DatasetPath: params.DatasetPath,
 		ControlTime: params.ControlTime,
 		ExtraPaths:  append([]string(nil), params.ExtraPaths...),
 		ParentRunID: parent,
-	}); err != nil {
+	}
+	if err := writeJSONFile(filepath.Join(dir, "request.json"), req); err != nil {
+		return err
+	}
+	snapshot, err := json.Marshal(rec.view())
+	if err != nil {
+		return err
+	}
+	request, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
+	defer cancel()
+	if err = s.store.CreateRun(ctx, storage.Run{ID: id, UserID: userID, ParentID: parent, Status: rec.Status, StartedAt: rec.StartedAt, Snapshot: snapshot, Request: request}); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -261,18 +321,37 @@ func (s *Server) update(id string, fn func(*runRec)) {
 	}
 	fn(run)
 	view := run.view()
-	s.mu.Unlock()
+	raw, err := json.Marshal(view)
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = s.store.UpdateRun(ctx, storage.Run{ID: id, UserID: run.UserID, Status: run.Status, Snapshot: raw})
+		cancel()
+	}
+	if err != nil {
+		s.log.Error("сохранение прогона", "run_id", id, "err", err.Error())
+	}
+	// Keep writes ordered so an older progress event cannot overwrite completion.
 	s.persist(view)
+	if run.Status != statusRunning {
+		delete(s.runs, id)
+	}
+	s.mu.Unlock()
 }
 
-func (s *Server) lookup(id string) (runView, domain.RunParams, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	run := s.runs[id]
-	if run == nil {
-		return runView{}, domain.RunParams{}, false
+func (s *Server) lookup(ctx context.Context, userID, id string) (runView, domain.RunParams, error) {
+	run, err := s.store.GetRun(ctx, userID, id)
+	if err != nil {
+		return runView{}, domain.RunParams{}, err
 	}
-	return run.view(), run.Params, true
+	var view runView
+	var req storedRequest
+	if err = json.Unmarshal(run.Snapshot, &view); err != nil {
+		return view, domain.RunParams{}, err
+	}
+	if err = json.Unmarshal(run.Request, &req); err != nil {
+		return view, domain.RunParams{}, err
+	}
+	return view, domain.RunParams{OutDir: filepath.Join(s.runsDir, id), DatasetPath: req.DatasetPath, ControlTime: req.ControlTime, ExtraPaths: req.ExtraPaths}, nil
 }
 
 func (s *Server) freshID() string {
@@ -299,41 +378,6 @@ func (s *Server) persist(view runView) {
 	path := filepath.Join(s.runsDir, view.RunID, "status.json")
 	if err := os.WriteFile(path, raw, 0o644); err != nil {
 		s.log.Error("статус", "run_id", view.RunID, "err", err.Error())
-	}
-}
-
-func (s *Server) loadExisting() {
-	entries, err := os.ReadDir(s.runsDir)
-	if err != nil {
-		return
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() || !idOK(entry.Name()) {
-			continue
-		}
-		dir := filepath.Join(s.runsDir, entry.Name())
-		raw, err := os.ReadFile(filepath.Join(dir, "status.json"))
-		if err != nil {
-			continue
-		}
-		var view runView
-		if json.Unmarshal(raw, &view) != nil || !idOK(view.RunID) {
-			continue
-		}
-		rec := view.rec()
-		rec.Params.OutDir = dir
-		if req, err := readRequest(dir); err == nil {
-			rec.Params.DatasetPath = req.DatasetPath
-			rec.Params.ControlTime = req.ControlTime
-			rec.Params.ExtraPaths = append([]string(nil), req.ExtraPaths...)
-			rec.ParentID = req.ParentRunID
-		}
-		if rec.Status == statusRunning {
-			rec.Status = statusFailed
-			rec.Error = "сервер перезапущен до конца прогона"
-			s.persist(rec.view())
-		}
-		s.runs[rec.ID] = rec
 	}
 }
 
@@ -378,41 +422,11 @@ func (run *runRec) view() runView {
 	return view
 }
 
-func (view runView) rec() *runRec {
-	rec := &runRec{
-		ID:         view.RunID,
-		Status:     view.Status,
-		Stage:      view.Stage,
-		Done:       view.Done,
-		Total:      view.Total,
-		Stages:     append([]stageProg(nil), view.Stages...),
-		Error:      view.Error,
-		StartedAt:  parseStamp(view.StartedAt),
-		FinishedAt: parseStamp(view.FinishedAt),
-		ParentID:   view.ParentRunID,
-	}
-	if rec.Stages == nil {
-		rec.Stages = []stageProg{}
-	}
-	return rec
-}
-
 func formatStamp(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
 	return t.UTC().Format(time.RFC3339)
-}
-
-func parseStamp(raw string) time.Time {
-	if raw == "" {
-		return time.Time{}
-	}
-	t, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
 }
 
 func runError(err error) string {
@@ -438,16 +452,4 @@ func idOK(id string) bool {
 		}
 	}
 	return true
-}
-
-func readRequest(dir string) (storedRequest, error) {
-	var req storedRequest
-	raw, err := os.ReadFile(filepath.Join(dir, "request.json"))
-	if err != nil {
-		return req, err
-	}
-	if err := json.Unmarshal(raw, &req); err != nil {
-		return storedRequest{}, err
-	}
-	return req, nil
 }

@@ -46,6 +46,15 @@ func (s smtpClient) Send(ctx context.Context, from string, to []string, raw []by
 		return fmt.Errorf("соединение: %w", err)
 	}
 	defer conn.Close()
+	deadline := time.Now().Add(25 * time.Second)
+	if requested, ok := ctx.Deadline(); ok && requested.Before(deadline) {
+		deadline = requested
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		return err
+	}
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
 	client, err := smtp.NewClient(conn, s.host)
 	if err != nil {
 		return fmt.Errorf("клиент smtp: %w", err)

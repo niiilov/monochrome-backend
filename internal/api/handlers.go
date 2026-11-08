@@ -12,6 +12,7 @@ import (
 
 	"mono/internal/domain"
 	"mono/internal/mailer"
+	"mono/internal/storage"
 	"mono/internal/timeutil"
 )
 
@@ -55,6 +56,9 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dataset, control, err := readCreate(r, dir)
+	if err == nil {
+		err = s.allowedInput(dataset, dir)
+	}
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
@@ -71,7 +75,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		writeInput(w, err)
 		return
 	}
-	if err := s.launch(id, dir, domain.RunParams{DatasetPath: dataset, ControlTime: when}, ""); err != nil {
+	if err := s.launch(id, dir, domain.RunParams{DatasetPath: dataset, ControlTime: when}, "", currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -208,6 +212,9 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	extra, err := readArticle(r, dir)
+	if err == nil {
+		err = s.allowedInput(extra, dir)
+	}
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
@@ -219,7 +226,7 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 		DatasetPath: params.DatasetPath,
 		ControlTime: params.ControlTime,
 		ExtraPaths:  extras,
-	}, view.RunID); err != nil {
+	}, view.RunID, currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -237,9 +244,13 @@ func (s *Server) readyID(w http.ResponseWriter, r *http.Request, done bool) (run
 		writeErr(w, http.StatusNotFound, "прогон не найден")
 		return runView{}, domain.RunParams{}, false
 	}
-	view, params, ok := s.lookup(id)
-	if !ok {
+	view, params, err := s.lookup(r.Context(), currentUser(r).ID, id)
+	if errors.Is(err, storage.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "прогон не найден")
+		return runView{}, domain.RunParams{}, false
+	}
+	if err != nil {
+		s.databaseError(w, err)
 		return runView{}, domain.RunParams{}, false
 	}
 	if done && view.Status != statusDone {
@@ -254,6 +265,44 @@ func (s *Server) readyID(w http.ResponseWriter, r *http.Request, done bool) (run
 		return runView{}, domain.RunParams{}, false
 	}
 	return view, params, true
+}
+
+// Only uploads for this request and explicitly shared datasets may be read.
+// Resolve symlinks before comparing paths, including on Windows.
+func (s *Server) allowedInput(path, uploadDir string) error {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return &inputError{msg: "набор или файл публикации не найден"}
+	}
+	resolved, err = filepath.Abs(resolved)
+	if err != nil {
+		return err
+	}
+	roots := append([]string{filepath.Join(uploadDir, "input")}, s.datasetRoots...)
+	for _, root := range roots {
+		root, err = filepath.EvalSymlinks(root)
+		if err != nil {
+			continue
+		}
+		root, err = filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		rel, err := filepath.Rel(root, resolved)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
+			// Reject nested symlinks as ingest can follow files inside dataset directories.
+			return filepath.WalkDir(resolved, func(p string, d os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return &inputError{msg: "не удалось прочитать набор"}
+				}
+				if d.Type()&os.ModeSymlink != 0 {
+					return &inputError{msg: "символические ссылки в наборе запрещены"}
+				}
+				return nil
+			})
+		}
+	}
+	return &inputError{msg: "используйте загрузку файла или набор из разрешённого каталога"}
 }
 
 func (s *Server) readyDir(w http.ResponseWriter, r *http.Request) (string, bool) {

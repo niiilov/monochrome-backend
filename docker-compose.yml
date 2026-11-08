@@ -2,6 +2,20 @@
 # без ключа модели: make up-mock
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mono
+      POSTGRES_USER: mono
+      POSTGRES_PASSWORD: mono
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mono -d mono"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   mono:
     build: .
     image: mono:local
@@ -11,6 +25,11 @@ services:
       - .env
     environment:
       MONO_ADDR: ":8080"
+      DATABASE_URL: postgresql://mono:mono@postgres:5432/mono?sslmode=disable
+      APP_PUBLIC_URL: http://localhost:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
     user: "${MONO_UID:-1000}:${MONO_GID:-1000}"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -24,3 +43,6 @@ services:
       timeout: 3s
       retries: 12
       start_period: 3s
+
+volumes:
+  postgres_data:
