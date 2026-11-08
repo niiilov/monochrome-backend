@@ -131,7 +131,7 @@ func Default() Config {
 			Temperature:    0,
 			Seed:           7,
 			TimeoutSec:     90,
-			MaxConcurrency: 4,
+			MaxConcurrency: 8,
 			MaxInputChars:  24000,
 		},
 		Ingest: Ingest{

@@ -115,14 +115,23 @@ func ScoreResult(ctx context.Context, c llm.Client, events []domain.Event, arts 
 		return Result{}, errors.New("rank: клиент не задан")
 	}
 	res := Result{Errors: map[string]string{}}
-	for _, ev := range events {
-		if err := ctx.Err(); err != nil {
-			return res, err
-		}
-		scored, err := scoreOne(ctx, c, ev, arts, cfg.Weights)
-		if err != nil {
-			res.Errors[eventKey(ev.ID)] = err.Error()
-			emit(ctx, scored, []string{"Оценка не выполнена: " + clipRunes(err.Error(), 200)})
+	type slot struct {
+		ev  domain.Event
+		err error
+	}
+	slots := make([]slot, len(events))
+	fanout(ctx, len(events), func(ctx context.Context, i int) {
+		ev, err := scoreOne(ctx, c, events[i], arts, cfg.Weights)
+		slots[i] = slot{ev: ev, err: err}
+	})
+	if err := ctx.Err(); err != nil {
+		return res, err
+	}
+	for i, ev := range events {
+		scored := slots[i].ev
+		if slots[i].err != nil {
+			res.Errors[eventKey(ev.ID)] = slots[i].err.Error()
+			emit(ctx, scored, []string{"Оценка не выполнена: " + clipRunes(slots[i].err.Error(), 200)})
 		}
 		res.Events = append(res.Events, scored)
 	}

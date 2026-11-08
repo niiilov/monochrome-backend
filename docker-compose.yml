@@ -17,6 +17,7 @@ services:
       - ./sources.yaml:/app/sources.yaml:ro
       - ./data:/app/data:ro
       - ./runs:/app/runs
+      - ./.cache:/app/.cache
     healthcheck:
       test: ["CMD", "bash", "-c", "echo >/dev/tcp/127.0.0.1/8080"]
       interval: 5s

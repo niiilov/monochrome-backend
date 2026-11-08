@@ -53,7 +53,7 @@ type sourceView struct {
 }
 
 // Items writes one digest item per selected event.
-// Calls run in parallel, at most four at a time.
+// Calls run in parallel, at most eight at a time. The LLM client limiter can be lower.
 // retryHints maps an event ID to notes that must be fixed on this attempt.
 // When any event is marked selected, the others are skipped.
 // A rank greater than zero sorts the kept events. At most five are kept.

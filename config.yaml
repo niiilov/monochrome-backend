@@ -5,11 +5,12 @@ llm:
   temperature: 0
   seed: 7
   timeout_sec: 90
-  max_concurrency: 4
+  max_concurrency: 8
   max_input_chars: 24000
   price_per_1m_input: null
   price_per_1m_output: null
-  cache_dir: ""
+  # Повтор того же запроса берётся с диска и в сеть не идёт. Пустая строка выключает кэш.
+  cache_dir: .cache/llm
 ingest:
   field_map:
     id: id

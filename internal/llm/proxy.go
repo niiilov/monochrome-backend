@@ -13,23 +13,45 @@ import (
 
 // newLLMHTTPClient uses LLM_PROXY and LLM_PROXY_FILE when they are set.
 // Localhost is never sent through a proxy, so tests keep talking to httptest.
-// An empty configuration keeps the default direct client.
+// An empty configuration keeps a direct client with a larger idle pool.
 func newLLMHTTPClient(timeout time.Duration) (*http.Client, []string, error) {
 	proxies, err := proxiesFromEnv()
 	if err != nil {
 		return nil, nil, err
 	}
+	transport := tunedTransport()
 	if len(proxies) == 0 {
-		return &http.Client{Timeout: timeout}, nil, nil
+		return &http.Client{Timeout: timeout, Transport: transport}, nil, nil
 	}
-	base, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		return nil, nil, fmt.Errorf("llm: транспорт HTTP не поддерживает прокси")
-	}
-	transport := base.Clone()
 	ring := &proxyRing{list: proxies}
 	transport.Proxy = ring.forRequest
 	return &http.Client{Timeout: timeout, Transport: transport}, proxySecrets(proxies), nil
+}
+
+// tunedTransport keeps idle TLS connections for a whole parallel batch.
+// The default client keeps two idle connections per host, so the rest of a
+// burst opens a new handshake for every call.
+func tunedTransport() *http.Transport {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   32,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: time.Second,
+			ForceAttemptHTTP2:     true,
+		}
+	}
+	t := base.Clone()
+	if t.MaxIdleConnsPerHost < 32 {
+		t.MaxIdleConnsPerHost = 32
+	}
+	if t.MaxIdleConns < 100 {
+		t.MaxIdleConns = 100
+	}
+	return t
 }
 
 func proxiesFromEnv() ([]*url.URL, error) {

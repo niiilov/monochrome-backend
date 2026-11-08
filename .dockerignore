@@ -7,6 +7,7 @@ data
 bin
 runs
 out
+.cache
 submission
 docs
 *.md

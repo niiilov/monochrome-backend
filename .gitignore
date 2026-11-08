@@ -1,6 +1,7 @@
 runs/
 out/
 data/
+.cache/
 
 bin/
 submission/

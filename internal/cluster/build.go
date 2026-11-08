@@ -173,32 +173,46 @@ func BuildResult(ctx context.Context, c llm.Client, mentions []domain.Mention, a
 	if len(cands) > 0 && c == nil {
 		return Result{}, errors.New("cluster: клиент не задан")
 	}
-	for _, pair := range cands {
+	// Confirm every candidate at once, then merge in candidate order so the
+	// groups and the journal notes stay the same as a serial pass.
+	type pairVerdict struct {
+		same      bool
+		conflicts []domain.Conflict
+		reason    string
+		err       error
+	}
+	verdicts := make([]pairVerdict, len(cands))
+	fanout(ctx, len(cands), func(ctx context.Context, i int) {
+		pair := cands[i]
 		same, conflicts, reason, err := confirmPair(ctx, c, kept[pair.i], kept[pair.j], arts)
+		verdicts[i] = pairVerdict{same: same, conflicts: conflicts, reason: reason, err: err}
+	})
+	for i, pair := range cands {
+		verdict := verdicts[i]
 		left := kept[pair.i]
 		right := kept[pair.j]
-		if err != nil {
-			msg := clipLine(err.Error())
+		if verdict.err != nil {
+			msg := clipLine(verdict.err.Error())
 			remember(res.Errors, left.ArticleID, msg)
 			remember(res.Errors, right.ArticleID, msg)
 			extract.Note(ctx, stage, left.ArticleID, "Не удалось подтвердить пару "+left.ID+" и "+right.ID+": "+msg)
 			extract.Note(ctx, stage, right.ArticleID, "Не удалось подтвердить пару "+left.ID+" и "+right.ID+": "+msg)
 			continue
 		}
-		if !same {
+		if !verdict.same {
 			note := "Пара " + left.ID + " и " + right.ID + " не объединена."
-			if reason != "" {
-				note = "Пара " + left.ID + " и " + right.ID + " не объединена: " + reason
+			if verdict.reason != "" {
+				note = "Пара " + left.ID + " и " + right.ID + " не объединена: " + verdict.reason
 			}
 			extract.Note(ctx, stage, left.ArticleID, note)
 			extract.Note(ctx, stage, right.ArticleID, note)
 			continue
 		}
 		groups.union(pair.i, pair.j)
-		links = append(links, link{i: pair.i, j: pair.j, conflicts: conflicts})
+		links = append(links, link{i: pair.i, j: pair.j, conflicts: verdict.conflicts})
 		note := "Пара " + left.ID + " и " + right.ID + " объединена."
-		if reason != "" {
-			note = "Пара " + left.ID + " и " + right.ID + " объединена: " + reason
+		if verdict.reason != "" {
+			note = "Пара " + left.ID + " и " + right.ID + " объединена: " + verdict.reason
 		}
 		extract.Note(ctx, stage, left.ArticleID, note)
 		extract.Note(ctx, stage, right.ArticleID, note)
@@ -390,20 +404,43 @@ func applyUpdates(ctx context.Context, c llm.Client, events []domain.Event, arts
 			}
 		}
 	}
-	out := make([]domain.Event, 0, len(events))
-	for _, ev := range events {
+	type slot struct {
+		ev      domain.Event
+		matched []domain.Article
+		drop    map[string]bool
+		errs    map[string]string
+	}
+	slots := make([]slot, len(events))
+	var llmAt []int
+	for i, ev := range events {
 		matched := onlyEarlier(matchContext(ev, ctxArts, cfg), ev, arts)
 		ev.ContextArticleIDs = contextIDs(matched, arts)
-		var drop map[string]bool
+		slots[i].ev = ev
+		slots[i].matched = matched
 		if len(matched) > 0 {
-			if c == nil {
-				return nil, nil, errors.New("cluster: клиент не задан")
-			}
-			drop = checkFresh(ctx, c, &ev, matched, arts, errs)
-		} else {
-			drop = earlierWithoutContext(ev)
+			llmAt = append(llmAt, i)
+			continue
 		}
-		ev.Mentions = filterMentions(ev.Mentions, drop)
+		slots[i].drop = earlierWithoutContext(ev)
+	}
+	if len(llmAt) > 0 && c == nil {
+		return nil, nil, errors.New("cluster: клиент не задан")
+	}
+	fanout(ctx, len(llmAt), func(ctx context.Context, k int) {
+		i := llmAt[k]
+		local := map[string]string{}
+		slots[i].drop = checkFresh(ctx, c, &slots[i].ev, slots[i].matched, arts, local)
+		slots[i].errs = local
+	})
+	for i := range slots {
+		for id, msg := range slots[i].errs {
+			remember(errs, id, msg)
+		}
+	}
+	out := make([]domain.Event, 0, len(events))
+	for i := range slots {
+		ev := slots[i].ev
+		ev.Mentions = filterMentions(ev.Mentions, slots[i].drop)
 		if len(ev.Mentions) == 0 {
 			continue
 		}
@@ -498,6 +535,7 @@ func contextIDs(matched []domain.Article, arts map[string]domain.Article) []stri
 
 func checkFresh(ctx context.Context, c llm.Client, ev *domain.Event, matched []domain.Article, arts map[string]domain.Article, errs map[string]string) map[string]bool {
 	drop := map[string]bool{}
+	var ids []string
 	seen := map[string]bool{}
 	for i := range ev.Mentions {
 		id := ev.Mentions[i].ArticleID
@@ -505,14 +543,25 @@ func checkFresh(ctx context.Context, c llm.Client, ev *domain.Event, matched []d
 			continue
 		}
 		seen[id] = true
-		facts, err := updateOne(ctx, c, id, arts[id], matched)
-		if err != nil {
-			msg := clipLine(err.Error())
+		ids = append(ids, id)
+	}
+	type result struct {
+		facts []string
+		err   error
+	}
+	got := make([]result, len(ids))
+	fanout(ctx, len(ids), func(ctx context.Context, i int) {
+		facts, err := updateOne(ctx, c, ids[i], arts[ids[i]], matched)
+		got[i] = result{facts: facts, err: err}
+	})
+	for i, id := range ids {
+		if got[i].err != nil {
+			msg := clipLine(got[i].err.Error())
 			remember(errs, id, msg)
 			extract.Note(ctx, stage, id, "Проверка новых фактов не выполнена: "+msg)
 			continue
 		}
-		if len(facts) == 0 {
+		if len(got[i].facts) == 0 {
 			for j := range ev.Mentions {
 				if ev.Mentions[j].ArticleID == id {
 					drop[ev.Mentions[j].ID] = true
@@ -523,7 +572,7 @@ func checkFresh(ctx context.Context, c llm.Client, ev *domain.Event, matched []d
 		}
 		for j := range ev.Mentions {
 			if ev.Mentions[j].ArticleID == id {
-				ev.Mentions[j].NewFacts = facts
+				ev.Mentions[j].NewFacts = got[i].facts
 			}
 		}
 	}

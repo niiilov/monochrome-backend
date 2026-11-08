@@ -78,8 +78,8 @@ func TestCacheParallel(t *testing.T) {
 	if _, err := c.Complete(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
-	if inner.n.Load() < 1 || inner.n.Load() > 8 {
-		t.Fatalf("calls %d", inner.n.Load())
+	if inner.n.Load() != 1 {
+		t.Fatalf("calls %d, want 1", inner.n.Load())
 	}
 	before := inner.n.Load()
 	if _, err := c.Complete(context.Background(), req); err != nil {

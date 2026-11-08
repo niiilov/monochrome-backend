@@ -8,18 +8,30 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type cacheClient struct {
-	next  Client
-	dir   string
-	model string
+	next     Client
+	dir      string
+	model    string
+	mu       sync.Mutex
+	inflight map[string]*flight
+}
+
+// flight is one upstream call shared by every caller that missed the cache
+// for the same request at the same time.
+type flight struct {
+	done chan struct{}
+	resp Response
+	err  error
 }
 
 // WithCache stores successful responses on disk, keyed by a hash of the
 // model and the request. The API key is not part of the hash and is not written.
 // An empty dir disables the cache and returns next unchanged.
 // A cache read or write failure does not fail the completion.
+// Identical requests that miss together share one upstream call.
 func WithCache(next Client, dir, model string) Client {
 	dir = strings.TrimSpace(dir)
 	if dir == "" {
@@ -33,12 +45,42 @@ func (c *cacheClient) Complete(ctx context.Context, r Request) (Response, error)
 	if resp, ok := readCache(path); ok {
 		return resp, nil
 	}
-	resp, err := c.next.Complete(ctx, r)
-	if err != nil {
-		return resp, err
+	c.mu.Lock()
+	if resp, ok := readCache(path); ok {
+		c.mu.Unlock()
+		return resp, nil
 	}
-	writeCache(path, resp)
-	return resp, nil
+	if f, ok := c.inflight[path]; ok {
+		c.mu.Unlock()
+		return waitFlight(ctx, f)
+	}
+	f := &flight{done: make(chan struct{})}
+	if c.inflight == nil {
+		c.inflight = map[string]*flight{}
+	}
+	c.inflight[path] = f
+	c.mu.Unlock()
+
+	resp, err := c.next.Complete(ctx, r)
+	if err == nil {
+		writeCache(path, resp)
+	}
+	f.resp, f.err = resp, err
+	close(f.done)
+
+	c.mu.Lock()
+	delete(c.inflight, path)
+	c.mu.Unlock()
+	return resp, err
+}
+
+func waitFlight(ctx context.Context, f *flight) (Response, error) {
+	select {
+	case <-ctx.Done():
+		return Response{}, ctx.Err()
+	case <-f.done:
+		return f.resp, f.err
+	}
 }
 
 func requestHash(model string, r Request) string {
