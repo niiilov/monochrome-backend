@@ -12,17 +12,28 @@ import (
 	"mono/internal/domain"
 )
 
-// exportNames are the formal archive. Optional files are added when the runner wrote them.
+// exportRequired are the files check_digest.py expects in the submission archive.
 var exportRequired = []string{
-	"mono.json",
-	"mono.md",
-	"post.txt",
-	"email_preview.html",
+	"digest.md",
+	"post.md",
+	"email.md",
 	"journal.csv",
-	"run_report.json",
 }
 
-var exportOptional = []string{"email.txt", "journal.json"}
+// exportSources lists on-disk names for each archive entry. The first file that exists is used.
+var exportSources = map[string][]string{
+	"digest.md":   {"digest.md", "mono.md"},
+	"post.md":     {"post.md", "post.txt"},
+	"email.md":    {"email.md", "email.txt"},
+	"journal.csv": {"journal.csv"},
+}
+
+var exportOptional = []string{
+	"mono.json",
+	"journal.json",
+	"run_report.json",
+	"email_preview.html",
+}
 
 type digestFile struct {
 	Period      domain.Period       `json:"period"`
@@ -45,7 +56,7 @@ func (s *Server) export(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"mono-"+id+".zip\"")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"digest-"+id+".zip\"")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(raw)
@@ -76,7 +87,7 @@ func ensureDigestJSON(dir string, state *domain.RunState) error {
 	if info, err := os.Stat(path); err == nil && info.Size() > 0 {
 		return nil
 	}
-	text, _ := os.ReadFile(filepath.Join(dir, "mono.md"))
+	text, _ := os.ReadFile(firstExisting(dir, "digest.md", "mono.md"))
 	doc := digestFile{Text: string(text), Events: []domain.DigestItem{}}
 	if state != nil {
 		doc.Period = state.Digest.Period
@@ -96,7 +107,7 @@ func zipDir(dir string) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, name := range exportRequired {
-		if err := addZip(zw, dir, name); err != nil {
+		if err := addZip(zw, dir, name, exportSources[name]); err != nil {
 			_ = zw.Close()
 			return nil, fmt.Errorf("в архиве нет файла %s", name)
 		}
@@ -105,7 +116,7 @@ func zipDir(dir string) ([]byte, error) {
 		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
 			continue
 		}
-		if err := addZip(zw, dir, name); err != nil {
+		if err := addZip(zw, dir, name, nil); err != nil {
 			_ = zw.Close()
 			return nil, err
 		}
@@ -116,8 +127,8 @@ func zipDir(dir string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func addZip(zw *zip.Writer, dir, name string) error {
-	raw, err := os.ReadFile(filepath.Join(dir, name))
+func addZip(zw *zip.Writer, dir, name string, sources []string) error {
+	raw, err := os.ReadFile(firstExisting(dir, append([]string{name}, sources...)...))
 	if err != nil {
 		return err
 	}
@@ -127,4 +138,22 @@ func addZip(zw *zip.Writer, dir, name string) error {
 	}
 	_, err = w.Write(raw)
 	return err
+}
+
+func firstExisting(dir string, names ...string) string {
+	seen := map[string]bool{}
+	for _, name := range names {
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		path := filepath.Join(dir, name)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return path
+		}
+	}
+	if len(names) == 0 {
+		return filepath.Join(dir, "")
+	}
+	return filepath.Join(dir, names[0])
 }

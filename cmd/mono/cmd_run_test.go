@@ -64,7 +64,7 @@ func TestRunMockSynthetic(t *testing.T) {
 	if err := verify.CheckFormat(string(digest), string(journalCSV)); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"post.txt", "email_preview.html", "email.txt", "journal.json", "run_report.json"} {
+	for _, name := range []string{"digest.md", "post.md", "email.md", "post.txt", "email_preview.html", "email.txt", "journal.json", "run_report.json"} {
 		if _, err := os.Stat(filepath.Join(out, name)); err != nil {
 			t.Fatal(err)
 		}

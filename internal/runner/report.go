@@ -44,14 +44,20 @@ func writeRun(outDir string, rows []domain.JournalEntry, report *domain.RunRepor
 	if err := j.WriteJSON(&jsonBuf); err != nil {
 		return err
 	}
+	digestBody := []byte(rendered.digest)
+	postBody := []byte(rendered.post)
+	emailBody := []byte(rendered.email)
 	files := []struct {
 		name string
 		body []byte
 	}{
-		{"mono.md", []byte(rendered.digest)},
-		{"post.txt", []byte(rendered.post)},
+		{"digest.md", digestBody},
+		{"post.md", postBody},
+		{"email.md", emailBody},
+		{"mono.md", digestBody},
+		{"post.txt", postBody},
 		{"email_preview.html", []byte(rendered.html)},
-		{"email.txt", []byte(rendered.email)},
+		{"email.txt", emailBody},
 		{"journal.csv", csvBuf.Bytes()},
 		{"journal.json", jsonBuf.Bytes()},
 	}

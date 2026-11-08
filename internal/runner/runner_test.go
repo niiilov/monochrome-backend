@@ -438,6 +438,9 @@ func repoRoot(t *testing.T) string {
 }
 
 var outputNames = []string{
+	"digest.md",
+	"post.md",
+	"email.md",
 	"mono.md",
 	"post.txt",
 	"email_preview.html",

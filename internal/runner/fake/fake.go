@@ -67,6 +67,11 @@ func (r *Runner) Run(ctx context.Context, p domain.RunParams, progress runner.Pr
 			return nil, domain.RunReport{}, err
 		}
 	}
+	for _, pair := range [][2]string{{"mono.md", "digest.md"}, {"post.txt", "post.md"}, {"email.txt", "email.md"}} {
+		if err := copyFile(filepath.Join(p.OutDir, pair[0]), filepath.Join(p.OutDir, pair[1])); err != nil {
+			return nil, domain.RunReport{}, err
+		}
+	}
 	state, report, err := readState(p.OutDir)
 	if err != nil {
 		return nil, domain.RunReport{}, err

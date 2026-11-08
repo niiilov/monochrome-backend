@@ -27,7 +27,7 @@ func runRun(ctx context.Context, args []string) int {
 	}
 	if opts.help {
 		fmt.Println("Использование: mono run --dataset <path> --control-time <RFC3339 или ДД.ММ.ГГГГ ЧЧ:ММ> --out <dir> [--extra <file>] [--config config.yaml] [--mock] [--live] [--sources sources.yaml]")
-		fmt.Println("Собирает дайджест и пишет mono.md, post.txt, email_preview.html, email.txt, journal.csv, journal.json, run_report.json.")
+		fmt.Println("Собирает дайджест и пишет digest.md, post.md, email.md, journal.csv, а также mono.md, post.txt, email_preview.html, email.txt, journal.json, run_report.json.")
 		fmt.Println("Флаг --extra можно повторять: файл добавляется к набору.")
 		fmt.Println("Флаг --mock запускает прогон без сетевой модели.")
 		fmt.Println("Флаг --live добавляет записи из sources.yaml. Без флага сбор выключен. --sources подменяет файл источников.")

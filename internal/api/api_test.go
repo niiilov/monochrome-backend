@@ -122,6 +122,11 @@ func TestPreviewExportAndAllowlist(t *testing.T) {
 		t.Fatalf("export %d %s", res.StatusCode, res.Header.Get("Content-Type"))
 	}
 	names := zipNames(t, zipRaw)
+	for _, name := range []string{"mono.md", "post.txt", "email.txt"} {
+		if _, ok := names[name]; ok {
+			t.Fatalf("zip still has %s, has %v", name, keys(names))
+		}
+	}
 	for _, name := range append(append([]string{}, exportRequired...), exportOptional...) {
 		raw, ok := names[name]
 		if !ok {
@@ -287,10 +292,16 @@ func (s *stubRunner) Run(ctx context.Context, p domain.RunParams, progress runne
 			body += "\n" + string(raw)
 		}
 	}
+	digest := "# Дайджест\n\n" + body + "\n"
+	post := body + "\n"
+	email := "Тема: Дайджест тестовый\n\n" + body + "\n"
 	files := map[string]string{
-		"mono.md":          "# Дайджест\n\n" + body + "\n",
-		"post.txt":           body + "\n",
-		"email.txt":          "Тема: Дайджест тестовый\n\n" + body + "\n",
+		"digest.md":          digest,
+		"post.md":            post,
+		"email.md":           email,
+		"mono.md":            digest,
+		"post.txt":           post,
+		"email.txt":          email,
 		"email_preview.html": "<!DOCTYPE html><html><body><p>" + html.EscapeString(body) + "</p></body></html>\n",
 		"journal.csv":        "id,status,group,reason,error\nstub-1,включён,E01,Событие вошло в выпуск: тест,\n",
 		"journal.json":       "[]\n",
