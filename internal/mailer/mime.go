@@ -17,12 +17,30 @@ var fallbackHTML = template.Must(template.New("mail").Parse(`<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Subject}}</title>
 </head>
-<body>
-<p>{{.Subject}}</p>
-{{if .Period}}<p>Период: {{.Period}}</p>{{end}}
-<pre>{{.Text}}</pre>
+<body style="margin:0;padding:0;background:#f3f3f1;color:#29251b;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f3f1;">
+<tr><td align="center" style="padding:28px 16px;">
+<div style="max-width:640px;margin:0 auto;background:#fffaf0;border:1px solid #dfd5ba;border-radius:28px;overflow:hidden;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffaf0;">
+<tr><td style="background:#17170f;padding:26px 32px 22px;font-family:Manrope,Segoe UI,Helvetica,Arial,sans-serif;">
+<div style="font-size:22px;font-weight:700;letter-spacing:.12em;line-height:1;color:#f6df63;">MONO</div>
+<div style="margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#ceccbf;">Кибердайджест</div>
+</td></tr>
+<tr><td style="padding:28px 32px 8px;font-family:Manrope,Segoe UI,Helvetica,Arial,sans-serif;">
+<h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;letter-spacing:-.03em;font-weight:650;color:#29251b;">{{.Subject}}</h1>
+{{if .Period}}<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#59513e;">Период: {{.Period}}</p>{{end}}
+</td></tr>
+<tr><td style="padding:0 32px 28px;font-family:Manrope,Segoe UI,Helvetica,Arial,sans-serif;">
+<pre style="margin:0;white-space:pre-wrap;font-family:Manrope,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#29251b;">{{.Text}}</pre>
+</td></tr>
+<tr><td style="background:#17170f;padding:16px 32px;font-family:Manrope,Segoe UI,Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:.04em;color:#ceccbf;">MONO · дайджест по кибербезопасности</td></tr>
+</table>
+</div>
+</td></tr>
+</table>
 </body>
 </html>
 `))
