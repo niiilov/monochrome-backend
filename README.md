@@ -52,9 +52,21 @@ LLM_PROXY= LLM_PROXY_FILE= ./scripts/control_run.sh testdata/train/publications.
 ## Инструменты
 
 - Go 1.22+ (в среде разработки может быть новее)
-- `make` (build, test, vet, check)
+- `make` (build, test, vet, check, ci)
 - Python 3 для `tools/check_mono.py`
 - Опционально: Docker, gitleaks (`scripts/check_secrets.sh`)
+
+## CI/CD
+
+На push и pull request GitHub Actions (`.github/workflows/ci.yml`) выполняет `go vet`, `go test ./...`, сборку `mono` и `monod`, `scripts/check_secrets.sh` и сборку Docker-образа. Локально то же самое без образа: `make ci`.
+
+Push в `main` после успешных проверок публикует образ в GHCR: `ghcr.io/<owner>/cyber-digest` с тегами `latest` и полного SHA. В образ не попадают `.env` и `data/`.
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/niiilov/cyber-digest
+```
+
+Процесс — `monod`, адрес `:8080`, проверка живости: `GET /healthz`. CLI внутри образа: `docker run --rm --entrypoint mono ghcr.io/niiilov/cyber-digest --help`.
 
 ## Структура
 

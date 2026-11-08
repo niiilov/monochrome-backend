@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+.env
+.env.*
+data
+bin
+runs
+out
+submission
+docs
+*.md
