@@ -94,11 +94,20 @@ type promptData struct {
 	Article string
 }
 
+// Options controls when a non-empty article needs an additional semantic review.
+type Options struct {
+	MinTextChars int
+}
+
 // Mentions extracts 1..N event mentions from one article.
 // A fact whose quote is not a substring of the title or text (after space
 // normalization) is dropped, and a trace note is written when ctx carries a Noter.
-// SufficientText is forced off when EnoughText rejects the article.
 func Mentions(ctx context.Context, c llm.Client, a domain.Article) ([]domain.Mention, error) {
+	return MentionsWithOptions(ctx, c, a, Options{MinTextChars: config.Default().Ingest.MinTextChars})
+}
+
+// MentionsWithOptions uses the run's soft threshold, including configuration overrides.
+func MentionsWithOptions(ctx context.Context, c llm.Client, a domain.Article, opts Options) ([]domain.Mention, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -107,6 +116,10 @@ func Mentions(ctx context.Context, c llm.Client, a domain.Article) ([]domain.Men
 	}
 	if c == nil {
 		return nil, errors.New("extract: клиент не задан")
+	}
+	if strings.TrimSpace(a.Text) == "" {
+		Note(ctx, stageExtract, a.ID, "Нет текста публикации для проверки фактов.")
+		return nil, nil
 	}
 	body := clipArticle(a.Text, textBudget())
 	system, user, _, err := prompts.Render("extract_events", promptData{
@@ -128,16 +141,28 @@ func Mentions(ctx context.Context, c llm.Client, a domain.Article) ([]domain.Men
 	if err != nil {
 		return nil, err
 	}
-	enough := EnoughText(a.Text, config.Default().Ingest.MinTextChars)
+	needsReview := !EnoughText(a.Text, opts.MinTextChars)
 	out := make([]domain.Mention, 0, len(parsed.Mentions))
 	n := 0
 	for _, raw := range parsed.Mentions {
-		m, notes := sanitize(a, raw, enough)
+		m, notes := sanitize(a, raw)
 		for _, note := range notes {
 			Note(ctx, stageExtract, a.ID, note)
 		}
 		if m == nil {
 			continue
+		}
+		if m.SufficientText && needsReview {
+			approved, err := reviewShortText(ctx, c, a, *m)
+			if err != nil {
+				return nil, err
+			}
+			m.SufficientText = approved
+			if approved {
+				Note(ctx, stageExtract, a.ID, "Короткий текст прошёл дополнительную проверку события и дословной цитаты.")
+			} else {
+				Note(ctx, stageExtract, a.ID, "Дополнительная проверка короткого текста не подтвердила достаточность фактов.")
+			}
 		}
 		n++
 		m.ID = "M-" + a.ID + "-" + itoa(n)
@@ -147,10 +172,14 @@ func Mentions(ctx context.Context, c llm.Client, a domain.Article) ([]domain.Men
 	return out, nil
 }
 
-func sanitize(a domain.Article, raw modelMention, enough bool) (*domain.Mention, []string) {
+func sanitize(a domain.Article, raw modelMention) (*domain.Mention, []string) {
 	var notes []string
 	facts := make([]domain.Fact, 0, len(raw.Facts))
 	for _, fact := range raw.Facts {
+		if strings.TrimSpace(fact.Text) == "" {
+			notes = append(notes, "Пустой факт отброшен.")
+			continue
+		}
 		quote := strings.TrimSpace(fact.Quote)
 		if quote == "" {
 			notes = append(notes, "Факт без цитаты отброшен.")
@@ -171,9 +200,9 @@ func sanitize(a domain.Article, raw modelMention, enough bool) (*domain.Mention,
 		notes = append(notes, "Упоминание отброшено: не осталось фактов с дословной цитатой.")
 		return nil, notes
 	}
-	sufficient := raw.SufficientText && enough
-	if raw.SufficientText && !enough {
-		notes = append(notes, "Модель посчитала текст достаточным, но код оставил недостаточно: мало знаков или предложений.")
+	sufficient := raw.SufficientText && strings.TrimSpace(raw.TitleDraft) != ""
+	if raw.SufficientText && !sufficient {
+		notes = append(notes, "Не сформулировано конкретное событие для пересказа.")
 	}
 	hedges, hedgeNotes := verbatimList(a, raw.Hedges, "Оговорка не найдена в тексте, отброшена")
 	notes = append(notes, hedgeNotes...)

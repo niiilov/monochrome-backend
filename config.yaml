@@ -24,7 +24,8 @@ ingest:
     - "null"
     - "N/A"
     - "не заполнено"
-  min_text_chars: 200
+  # Shorter texts receive an additional assessment; this is not a hard minimum.
+  min_text_chars: 80
 period:
   hours: 24
   naive_tz_policy: assume_msk

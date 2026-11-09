@@ -48,7 +48,7 @@ type LLM struct {
 type Ingest struct {
 	FieldMap       map[string]string `yaml:"field_map"`
 	MissingMarkers []string          `yaml:"missing_markers"`
-	MinTextChars   int               `yaml:"min_text_chars"`
+	MinTextChars   int               `yaml:"min_text_chars"` // Soft threshold for additional sufficiency review.
 }
 
 // Period is the publication window policy.
@@ -144,7 +144,7 @@ func Default() Config {
 				"published_at": "published_at",
 			},
 			MissingMarkers: []string{"", "null", "N/A", "не заполнено"},
-			MinTextChars:   200,
+			MinTextChars:   80,
 		},
 		Period: Period{Hours: 24, NaiveTZPolicy: "assume_msk"},
 		Cluster: Cluster{

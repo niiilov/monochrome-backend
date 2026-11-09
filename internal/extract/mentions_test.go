@@ -17,18 +17,17 @@ import (
 )
 
 func TestEnoughText(t *testing.T) {
-	if EnoughText("Коротко.", 200) {
-		t.Fatal("short text must be insufficient")
+	if EnoughText("Коротко.", 80) {
+		t.Fatal("short text must require additional review")
 	}
-	if !EnoughText("Первое предложение. Второе предложение.", 10) {
-		t.Fatal("two sentences over the floor must pass")
+	if !EnoughText("Одно законченное предложение достаточно для проверки.", 10) {
+		t.Fatal("sentence count must not force rejection")
 	}
-	if EnoughText("Одно длинное предложение без второго знака конца", 0) {
-		t.Fatal("a fragment without two terminators is not enough")
+	if EnoughText("  https://example.com/very-long-link  ", 0) || EnoughText("   ", 0) {
+		t.Fatal("a URL or whitespace is not article text")
 	}
-	body := "Оценка 9.8 балла. Это уже второе предложение."
-	if !EnoughText(body, 10) {
-		t.Fatal("a decimal point must not eat the real sentence")
+	if !EnoughText(strings.Repeat("я", 80), 80) || EnoughText(strings.Repeat("я", 79), 80) {
+		t.Fatal("the threshold must count Unicode characters")
 	}
 }
 
@@ -98,6 +97,7 @@ func TestMentionsDropsQuoteOutsideArticle(t *testing.T) {
 	good := "Компания Северный Мост сообщила об утечке 840000 записей."
 	m := mock.New()
 	m.When("extract_events", "", mustJSON(t, modelMention{
+		TitleDraft: "Утечка в Северном Мосте",
 		Facts: []modelFact{
 			{Text: "чужой факт", Quote: "этой фразы в статье нет"},
 			{Text: "Утекли 840000 записей.", Quote: "  " + good + "  "},
@@ -123,13 +123,15 @@ func TestMentionsDropsQuoteOutsideArticle(t *testing.T) {
 	}
 }
 
-func TestMentionsCodeOverridesSufficientText(t *testing.T) {
+func TestShortTextReviewRejectsFragment(t *testing.T) {
 	text := "Короткий обрывок."
 	m := mock.New()
 	m.When("extract_events", "", mustJSON(t, modelMention{
+		TitleDraft:     "Обрывок сообщения",
 		Facts:          []modelFact{{Text: "Обрывок.", Quote: "Короткий обрывок."}},
 		SufficientText: true,
 	}))
+	m.When(taskShortText, "", `{"sufficient_text":false,"event":"","quote":""}`)
 	j := journal.New()
 	j.Add(domain.JournalEntry{ID: "s1"})
 	got, err := Mentions(WithNoter(context.Background(), j), m, domain.Article{ID: "s1", Text: text})
@@ -142,11 +144,11 @@ func TestMentionsCodeOverridesSufficientText(t *testing.T) {
 	entry, _ := j.Get("s1")
 	found := false
 	for _, note := range entry.Trace {
-		if strings.Contains(note.Note, "код оставил недостаточно") {
+		if strings.Contains(note.Note, "не подтвердила достаточность") {
 			found = true
 		}
 	}
-	if !found {
+	if !found || m.CallsFor(taskShortText) != 1 {
 		t.Fatalf("trace %+v", entry.Trace)
 	}
 }
@@ -186,6 +188,7 @@ func TestMentionsIgnoresInjection(t *testing.T) {
 	quote := "Зафиксирован фишинг, 95 обращений в банк."
 	m := mock.New()
 	m.When("extract_events", "", mustJSON(t, modelMention{
+		TitleDraft:     "Фишинг против клиентов банка",
 		Facts:          []modelFact{{Text: "95 обращений.", Quote: quote}},
 		Reporter:       "банк",
 		SufficientText: true,
@@ -194,7 +197,7 @@ func TestMentionsIgnoresInjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Facts[0].Quote != quote {
+	if len(got) != 1 || !got[0].SufficientText || got[0].Facts[0].Quote != quote {
 		t.Fatalf("%+v", got)
 	}
 	if strings.Contains(got[0].Reporter, "@") {
@@ -234,7 +237,7 @@ func TestPromptHasNoLongDash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version != "2" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
+	if version != "3" || textutil.HasLongDash(system) || textutil.HasLongDash(user) {
 		t.Fatalf("version %s or long dash in render", version)
 	}
 	if !strings.Contains(system, "Общие правила") || !strings.Contains(user, "CNews") {

@@ -495,7 +495,7 @@ func (w *work) extract(ctx context.Context, passed []domain.Article) (map[string
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		mentions, callErr := extract.Mentions(ctx, w.client, passed[i])
+		mentions, callErr := extract.MentionsWithOptions(ctx, w.client, passed[i], extract.Options{MinTextChars: w.deps.Config.Ingest.MinTextChars})
 		slots[i] = slot{mentions: mentions, err: callErr}
 		n := int(done.Add(1))
 		w.emit("extract", n, len(passed))

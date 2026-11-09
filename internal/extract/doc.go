@@ -1,4 +1,5 @@
 // Package extract pulls event mentions out of one article.
 // Quotes are kept only when they are substrings of the article after space normalization.
-// The model cannot mark a short text as sufficient: EnoughText has the last word.
+// Text below the soft length threshold receives an additional semantic review.
+// Every accepted mention requires an event and a verified verbatim fact quote.
 package extract

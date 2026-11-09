@@ -41,6 +41,17 @@ func offlineText(task, prompt string) (string, error) {
 		return mustJSON(classifyReply(prompt)), nil
 	case "extract_events":
 		return mustJSON(extractReply(prompt)), nil
+	case "assess_short_text":
+		quote := articleSnippet(prompt)
+		low := strings.ToLower(quote)
+		concrete := false
+		for _, marker := range []string{"атак", "утеч", "взлом", "уязвим", "похит", "зашифр", "ddos"} {
+			concrete = concrete || strings.Contains(low, marker)
+		}
+		if !concrete {
+			return mustJSON(map[string]any{"sufficient_text": false, "event": "", "quote": ""}), nil
+		}
+		return mustJSON(map[string]any{"sufficient_text": true, "event": quote, "quote": quote}), nil
 	case "cluster_confirm":
 		return mustJSON(map[string]any{
 			"same_event":      false,
