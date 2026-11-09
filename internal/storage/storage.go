@@ -70,6 +70,7 @@ type Repository interface {
 	ReplaceVerification(context.Context, string, string, time.Time) error
 	UpdateUser(context.Context, string, *string, *[]string) (User, error)
 	UserByEmail(context.Context, string) (User, string, error)
+	ChangePassword(context.Context, string, string, string, string) error
 	CreateSession(context.Context, string, string, time.Time) error
 	SessionUser(context.Context, string) (User, error)
 	DeleteSession(context.Context, string) error

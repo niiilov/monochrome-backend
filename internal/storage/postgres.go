@@ -115,6 +115,26 @@ func (db *Postgres) UserByEmail(ctx context.Context, email string) (User, string
 	return user, hash, notFound(err)
 }
 
+// ChangePassword checks the previous hash and revokes other sessions atomically.
+func (db *Postgres) ChangePassword(ctx context.Context, userID, oldHash, newHash, keepSession string) error {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	res, err := tx.Exec(ctx, `UPDATE users SET password_hash=$3 WHERE id=$1 AND password_hash=$2`, userID, oldHash, newHash)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1 AND token_hash<>$2`, userID, keepSession); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func (db *Postgres) CreateSession(ctx context.Context, userID, hash string, expires time.Time) error {
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {

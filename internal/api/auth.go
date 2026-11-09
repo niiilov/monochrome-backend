@@ -279,6 +279,49 @@ func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"user": user})
 }
 
+func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
+	if !s.authLimit.allow(r.RemoteAddr) {
+		writeErr(w, 429, "слишком много попыток, повторите через 15 минут")
+		return
+	}
+	var body struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if !decodeSmallJSON(w, r, &body) {
+		return
+	}
+	if !utf8.ValidString(body.NewPassword) || utf8.RuneCountInString(body.NewPassword) < 8 || len(body.NewPassword) > 72 {
+		writeErr(w, 400, "пароль должен содержать минимум 8 символов и не более 72 байт")
+		return
+	}
+	user := currentUser(r)
+	_, oldHash, err := s.store.UserByEmail(r.Context(), user.Email)
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(oldHash), []byte(body.CurrentPassword)) != nil {
+		writeErr(w, 400, "текущий пароль указан неверно")
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
+	err = s.store.ChangePassword(r.Context(), user.ID, oldHash, string(hash), tokenHash(requestToken(r)))
+	if errors.Is(err, storage.ErrNotFound) {
+		writeErr(w, 409, "пароль уже изменён, повторите запрос с актуальным паролем")
+		return
+	}
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteSession(r.Context(), tokenHash(requestToken(r))); err != nil {
 		s.databaseError(w, err)

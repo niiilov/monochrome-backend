@@ -99,6 +99,24 @@ func (db *memoryStore) UserByEmail(_ context.Context, email string) (storage.Use
 	}
 	return u.user, u.hash, nil
 }
+func (db *memoryStore) ChangePassword(_ context.Context, id, oldHash, newHash, keepSession string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	for email, account := range db.users {
+		if account.user.ID == id && account.hash == oldHash {
+			account.hash = newHash
+			db.users[email] = account
+			for hash, session := range db.sessions {
+				if session.userID == id && hash != keepSession {
+					delete(db.sessions, hash)
+				}
+			}
+			return nil
+		}
+	}
+	return storage.ErrNotFound
+}
+
 func (db *memoryStore) CreateSession(_ context.Context, id, hash string, expires time.Time) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -582,6 +600,39 @@ func exerciseAuth(t *testing.T, db storage.Repository) {
 	res.Body.Close()
 	if res.StatusCode != 403 {
 		t.Fatal("cross-site mutation accepted")
+	}
+	// Password changes require the current password and only retain this session.
+	change := `{"current_password":"valid-password","new_password":"changed-password"}`
+	call("POST", auth+"change-password", change, "", 401)
+	call("POST", auth+"change-password", `{"current_password":"wrong","new_password":"changed-password"}`, first, 400)
+	call("POST", auth+"change-password", `{"current_password":"valid-password","new_password":"short"}`, first, 400)
+	call("POST", auth+"change-password", fmt.Sprintf(`{"current_password":"valid-password","new_password":%q}`, strings.Repeat("я", 37)), first, 400)
+	call("POST", auth+"change-password", change+` {}`, first, 400)
+	call("POST", auth+"login", payload, "", 200) // Another session to revoke.
+	otherSession := call("POST", auth+"login", payload, "", 200)["token"].(string)
+	req, _ = http.NewRequest("POST", ts.URL+auth+"change-password", strings.NewReader(change))
+	req.Header.Set("Authorization", "Bearer "+first)
+	req.Header.Set("Origin", "https://attacker.example")
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 403 {
+		t.Fatal("cross-site password change accepted")
+	}
+	call("POST", auth+"change-password", change, first, 200)
+	call("GET", auth+"me", "", first, 200)
+	call("GET", auth+"me", "", otherSession, 401)
+	call("GET", auth+"me", "", second, 200)
+	call("POST", auth+"login", payload, "", 401)
+	call("POST", auth+"login", fmt.Sprintf(`{"email":%q,"password":"changed-password"}`, email), "", 200)
+	_, newHash, err := db.UserByEmail(context.Background(), email)
+	if err != nil || bcrypt.CompareHashAndPassword([]byte(newHash), []byte("changed-password")) != nil {
+		t.Fatal("new password was not persisted as a bcrypt hash")
+	}
+	if err := db.ChangePassword(context.Background(), u.ID, hash, "stale-update", tokenHash(first)); !errors.Is(err, storage.ErrNotFound) {
+		t.Fatal("stale password change overwrote the current password")
 	}
 }
 

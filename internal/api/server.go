@@ -157,6 +157,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/logout", s.authenticated(s.logout))
 	mux.HandleFunc("GET /api/v1/auth/me", s.authenticated(s.me))
 	mux.HandleFunc("PATCH /api/v1/auth/me", s.authenticated(s.updateProfile))
+	mux.HandleFunc("POST /api/v1/auth/change-password", s.authenticated(s.changePassword))
 	mux.HandleFunc("POST /api/v1/runs", s.authenticated(s.create))
 	mux.HandleFunc("GET /api/v1/runs", s.authenticated(s.history))
 	mux.HandleFunc("GET /api/v1/runs/{id}", s.authenticated(s.status))
