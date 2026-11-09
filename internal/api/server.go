@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,6 +94,7 @@ type storedRequest struct {
 	ControlTime time.Time `json:"control_time"`
 	ExtraPaths  []string  `json:"extra_paths,omitempty"`
 	Keywords    []string  `json:"keywords,omitempty"`
+	Live        bool      `json:"live,omitempty"`
 	ParentRunID string    `json:"parent_run_id,omitempty"`
 }
 
@@ -245,6 +247,7 @@ func (s *Server) launch(id, dir string, params domain.RunParams, parent, userID 
 		ControlTime: params.ControlTime,
 		ExtraPaths:  append([]string(nil), params.ExtraPaths...),
 		Keywords:    append([]string(nil), params.Keywords...),
+		Live:        params.Live,
 		ParentRunID: parent,
 	}
 	if err := writeJSONFile(filepath.Join(dir, "request.json"), req); err != nil {
@@ -363,6 +366,7 @@ func (s *Server) lookup(ctx context.Context, userID, id string) (runView, domain
 		ControlTime: req.ControlTime,
 		ExtraPaths:  req.ExtraPaths,
 		Keywords:    append([]string(nil), req.Keywords...),
+		Live:        req.Live,
 	}, nil
 }
 
@@ -414,6 +418,10 @@ func (run *runRec) view() runView {
 	for _, path := range run.Params.ExtraPaths {
 		extras = append(extras, filepath.Base(path))
 	}
+	dataset := filepath.Base(run.Params.DatasetPath)
+	if strings.TrimSpace(run.Params.DatasetPath) == "" && run.Params.Live {
+		dataset = "сайты"
+	}
 	view := runView{
 		RunID:       run.ID,
 		Status:      run.Status,
@@ -424,7 +432,7 @@ func (run *runRec) view() runView {
 		Error:       run.Error,
 		StartedAt:   formatStamp(run.StartedAt),
 		FinishedAt:  formatStamp(run.FinishedAt),
-		Dataset:     filepath.Base(run.Params.DatasetPath),
+		Dataset:     dataset,
 		ParentRunID: run.ParentID,
 		ExtraPaths:  extras,
 	}

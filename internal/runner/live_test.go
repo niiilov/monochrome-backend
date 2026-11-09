@@ -83,6 +83,43 @@ func TestLiveFixturesProduceEvents(t *testing.T) {
 	}
 }
 
+func TestLiveFlagWithoutGlobalSwitch(t *testing.T) {
+	root := repoRoot(t)
+	cfg := config.Default()
+	cfg.Live.Enabled = false
+	cfg.Live.SourcesFile = filepath.Join(root, "testdata", "live", "sources.yaml")
+	got := live.Collect(context.Background(), cfg.Live)
+	client := baseMock()
+	for _, article := range got.Articles {
+		quote := snippet(article.Text)
+		client.When("extract_events", article.ID, mentionJSON(quote))
+	}
+	dir := t.TempDir()
+	meter := llm.NewMeter(cfg.LLM)
+	state, _, err := New(Deps{
+		Config:  cfg,
+		Client:  llm.WithMeter(client, meter),
+		Meter:   meter,
+		Version: "test",
+	}).Run(context.Background(), domain.RunParams{
+		Live:        true,
+		ControlTime: controlTime(),
+		OutDir:      filepath.Join(dir, "out"),
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var liveRows int
+	for _, row := range state.Journal {
+		if row != nil && strings.HasPrefix(row.ID, "live-") {
+			liveRows++
+		}
+	}
+	if liveRows == 0 {
+		t.Fatal("флаг прогона не включил сбор")
+	}
+}
+
 func TestLiveDisabledDoesNotReadSources(t *testing.T) {
 	cfg := config.Default()
 	cfg.Live.Enabled = false

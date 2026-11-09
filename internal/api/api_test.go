@@ -250,6 +250,50 @@ func TestPreviewExportAndAllowlist(t *testing.T) {
 	}
 }
 
+func TestCreateFromSitesSkipsDataset(t *testing.T) {
+	stub := &stubRunner{}
+	ts, _ := newAPI(t, stub, nil, true)
+	body := &bytes.Buffer{}
+	form := multipart.NewWriter(body)
+	if err := form.WriteField("control_time", "2026-11-09T10:00:00+03:00"); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.WriteField("live", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	res, err := http.Post(ts.URL+"/api/v1/runs", form.FormDataContentType(), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusAccepted {
+		t.Fatalf("create %d %s", res.StatusCode, raw)
+	}
+	var created map[string]any
+	if err := json.Unmarshal(raw, &created); err != nil {
+		t.Fatal(err)
+	}
+	id := created["run_id"].(string)
+	done := waitDone(t, ts.URL, id)
+	if done["status"] != statusDone || done["dataset"] != "сайты" {
+		t.Fatalf("status %+v", done)
+	}
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
+	if len(stub.calls) != 1 || !stub.calls[0].Live || stub.calls[0].DatasetPath != "" {
+		t.Fatalf("params %+v", stub.calls)
+	}
+
+	code, _, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", `{"control_time":"2026-11-09T10:00:00+03:00"}`)
+	if code != http.StatusBadRequest {
+		t.Fatalf("без набора и без сайтов: %d %s", code, raw)
+	}
+}
+
 func TestCreateStoresKeywordsAndReusesThem(t *testing.T) {
 	stub := &stubRunner{}
 	ts, _ := newAPI(t, stub, []string{"ok@example.com"}, true)

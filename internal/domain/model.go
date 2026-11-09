@@ -204,6 +204,9 @@ type RunParams struct {
 	OutDir      string    `json:"out_dir"`
 	ExtraPaths  []string  `json:"extra_paths"`
 	Keywords    []string  `json:"keywords,omitempty"`
+	// Live collects the sites from sources.yaml for this run.
+	// The global live.enabled switch stays off for everyone else.
+	Live bool `json:"live,omitempty"`
 }
 
 // RunState is the in-memory result of a pipeline run.

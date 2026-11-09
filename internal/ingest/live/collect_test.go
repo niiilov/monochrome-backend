@@ -212,3 +212,55 @@ func TestRobotsParser(t *testing.T) {
 		t.Fatal("пустой robots разрешает")
 	}
 }
+
+func TestFetchReplacesShortListing(t *testing.T) {
+	const page = `<!doctype html><html><body><nav><p>Меню сайта и прочие ссылки, которые не должны попасть в текст новости.</p></nav><article><h1>Утечка в банке</h1><time datetime="2026-11-09T08:00:00+03:00"></time><p>Банк подтвердил утечку записей клиентов и отключил затронутый сегмент. Служба безопасности проверяет журналы доступа и уже ограничила учетные записи подрядчика.</p><p>Платежные реквизиты, по заявлению банка, не затронуты. Число клиентов служба пока не назвала, расследование продолжается.</p></article></body></html>`
+	var pages atomic.Int32
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/news/1" {
+			pages.Add(1)
+			_, _ = w.Write([]byte(page))
+			return
+		}
+		if r.URL.Path == "/elsewhere" {
+			t.Errorf("запрос ушел на чужой путь %s", r.URL.Path)
+		}
+		rss := `<?xml version="1.0"?><rss version="2.0"><channel><item><title>Анонс</title><link>` + srv.URL + `/news/1</link><pubDate>Mon, 09 Nov 2026 08:00:00 +0300</pubDate><description>Короткий анонс.</description></item><item><title>Чужой</title><link>https://example.com/news</link><description>Тоже короткий анонс чужого сайта.</description></item></channel></rss>`
+		_, _ = w.Write([]byte(rss))
+	}))
+	defer srv.Close()
+	dir := t.TempDir()
+	sources := filepath.Join(dir, "sources.yaml")
+	body := "sources:\n" +
+		"  - id: open\n    name: Open\n    kind: rss\n    url: " + srv.URL + "/feed.xml\n    fetch: true\n"
+	if err := os.WriteFile(sources, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default().Live
+	cfg.SourcesFile = sources
+	cfg.RespectRobots = false
+	cfg.MaxRetries = 2
+	got := Collector{Config: cfg, Sleep: func(context.Context, time.Duration) {}}.Collect(context.Background())
+	if len(got.Articles) != 2 {
+		t.Fatalf("articles %+v journal %+v", got.Articles, got.Journal)
+	}
+	if pages.Load() != 1 {
+		t.Fatalf("страниц %d", pages.Load())
+	}
+	var own domain.Article
+	for _, article := range got.Articles {
+		if strings.Contains(article.URL, "/news/1") {
+			own = article
+		}
+		if strings.Contains(article.URL, "example.com") && strings.Contains(article.Text, "сегмент") {
+			t.Fatalf("чужой адрес не должен открываться: %+v", article)
+		}
+	}
+	if !strings.Contains(own.Text, "отключил затронутый сегмент") || strings.Contains(own.Text, "Меню сайта") {
+		t.Fatalf("текст страницы: %s", own.Text)
+	}
+	if own.PublishedRaw == "" {
+		t.Fatal("дата не сохранилась")
+	}
+}

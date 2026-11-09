@@ -27,6 +27,9 @@ type Source struct {
 	FieldText  string `yaml:"field_text"`
 	FieldURL   string `yaml:"field_url"`
 	FieldDate  string `yaml:"field_date"`
+	// Fetch opens each item link and replaces a short listing blurb with the page text.
+	Fetch   bool   `yaml:"fetch"`
+	Article string `yaml:"article"`
 }
 
 type sourceFile struct {
@@ -50,6 +53,7 @@ func LoadSources(path string) ([]Source, error) {
 		src.Name = strings.TrimSpace(src.Name)
 		src.Kind = strings.ToLower(strings.TrimSpace(src.Kind))
 		src.URL = resolveLoc(dir, src.URL)
+		src.Article = strings.TrimSpace(src.Article)
 		if src.Name == "" {
 			src.Name = src.ID
 		}

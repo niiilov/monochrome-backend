@@ -145,7 +145,8 @@ func newWork(deps Deps, params domain.RunParams, progress ProgressFunc) *work {
 }
 
 func paramsReady(p domain.RunParams) bool {
-	return strings.TrimSpace(p.OutDir) != "" && !p.ControlTime.IsZero() && strings.TrimSpace(p.DatasetPath) != ""
+	hasInput := strings.TrimSpace(p.DatasetPath) != "" || p.Live
+	return strings.TrimSpace(p.OutDir) != "" && !p.ControlTime.IsZero() && hasInput
 }
 
 func (w *work) execute(ctx context.Context) error {
@@ -183,7 +184,8 @@ func (w *work) execute(ctx context.Context) error {
 }
 
 func (w *work) checkParams() error {
-	if strings.TrimSpace(w.params.DatasetPath) == "" {
+	live := w.params.Live || w.deps.Config.Live.Enabled
+	if strings.TrimSpace(w.params.DatasetPath) == "" && !live {
 		return errors.New("не указан путь к набору")
 	}
 	if w.params.ControlTime.IsZero() {
@@ -199,25 +201,35 @@ func (w *work) load(ctx context.Context) error {
 	start := w.begin("load", 1)
 	defer w.finish("load", start, 1)
 	paths := datasetPaths(w.params)
-	articles, rows, err := ingest.LoadDataset(ctx, paths, w.deps.Config.Ingest)
-	if err != nil {
-		return fmt.Errorf("загрузка набора: %w", err)
+	var articles []domain.Article
+	var rows []domain.JournalEntry
+	if len(paths) > 0 {
+		var err error
+		articles, rows, err = ingest.LoadDataset(ctx, paths, w.deps.Config.Ingest)
+		if err != nil {
+			return fmt.Errorf("загрузка набора: %w", err)
+		}
 	}
-	// Live collection is off unless the run asked for it. The dataset path stays the same.
-	if w.deps.Config.Live.Enabled {
+	// A run can ask for sites on its own. The config switch still covers the CLI flag.
+	if w.params.Live || w.deps.Config.Live.Enabled {
 		articles, rows = live.Merge(articles, rows, live.Collect(ctx, w.deps.Config.Live))
 	}
 	w.articles = articles
 	w.seedJournal(rows)
-	sum, hashErr := hashDataset(paths)
-	if hashErr == nil {
-		w.datasetHash = sum
+	if len(paths) > 0 {
+		sum, hashErr := hashDataset(paths)
+		if hashErr == nil {
+			w.datasetHash = sum
+		}
 	}
 	return nil
 }
 
 func datasetPaths(p domain.RunParams) []string {
-	paths := []string{p.DatasetPath}
+	var paths []string
+	if strings.TrimSpace(p.DatasetPath) != "" {
+		paths = append(paths, p.DatasetPath)
+	}
 	for _, extra := range p.ExtraPaths {
 		extra = strings.TrimSpace(extra)
 		if extra != "" {

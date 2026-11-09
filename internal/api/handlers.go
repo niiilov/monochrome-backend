@@ -29,6 +29,7 @@ type createBody struct {
 	DatasetPath string           `json:"dataset_path"`
 	ControlTime string           `json:"control_time"`
 	Keywords    flexibleKeywords `json:"keywords"`
+	Live        bool             `json:"live"`
 }
 
 // flexibleKeywords accepts the form contract: a newline- or comma-separated
@@ -60,6 +61,7 @@ type parsedCreate struct {
 	dataset  string
 	control  string
 	keywords []string
+	live     bool
 }
 
 type articleBody struct {
@@ -92,15 +94,16 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input, err := readCreate(r, dir)
-	if err == nil {
+	if err == nil && input.dataset != "" {
 		err = s.allowedInput(input.dataset, dir)
 	}
-	if err != nil {
-		_ = os.RemoveAll(dir)
-		writeInput(w, err)
-		return
+	if err == nil && input.dataset != "" {
+		err = checkDataset(input.dataset)
 	}
-	if err := checkDataset(input.dataset); err != nil {
+	if err == nil && input.dataset == "" && !input.live {
+		err = &inputError{msg: "укажите путь к набору или загрузите файл"}
+	}
+	if err != nil {
 		_ = os.RemoveAll(dir)
 		writeInput(w, err)
 		return
@@ -111,7 +114,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		writeInput(w, err)
 		return
 	}
-	if err := s.launch(id, dir, domain.RunParams{DatasetPath: input.dataset, ControlTime: when, Keywords: input.keywords}, "", currentUser(r).ID); err != nil {
+	if err := s.launch(id, dir, domain.RunParams{DatasetPath: input.dataset, ControlTime: when, Keywords: input.keywords, Live: input.live}, "", currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -242,7 +245,7 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if strings.TrimSpace(params.DatasetPath) == "" {
+	if strings.TrimSpace(params.DatasetPath) == "" && !params.Live {
 		writeErr(w, http.StatusConflict, "у исходного прогона нет набора")
 		return
 	}
@@ -267,6 +270,7 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 		ControlTime: params.ControlTime,
 		ExtraPaths:  extras,
 		Keywords:    append([]string(nil), params.Keywords...),
+		Live:        params.Live,
 	}, view.RunID, currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -390,6 +394,7 @@ func readCreate(r *http.Request, dir string) (parsedCreate, error) {
 			return parsedCreate{}, &inputError{msg: "файл слишком большой или форма сломана"}
 		}
 		out.control = r.FormValue("control_time")
+		out.live = truthy(r.FormValue("live"))
 		words = r.Form["keywords"]
 		file, hdr, err := r.FormFile("file")
 		if err == nil {
@@ -410,6 +415,7 @@ func readCreate(r *http.Request, dir string) (parsedCreate, error) {
 		}
 		out.dataset = firstText(body.Dataset, body.DatasetPath)
 		out.control = body.ControlTime
+		out.live = body.Live
 		words = body.Keywords
 	default:
 		if err := r.ParseForm(); err != nil {
@@ -417,6 +423,7 @@ func readCreate(r *http.Request, dir string) (parsedCreate, error) {
 		}
 		out.dataset = firstText(r.FormValue("dataset"), r.FormValue("dataset_path"))
 		out.control = r.FormValue("control_time")
+		out.live = truthy(r.FormValue("live"))
 		words = r.Form["keywords"]
 	}
 	keywords, err := normalizeKeywords(splitKeywordValues(words))
@@ -425,6 +432,15 @@ func readCreate(r *http.Request, dir string) (parsedCreate, error) {
 	}
 	out.keywords = keywords
 	return out, nil
+}
+
+func truthy(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func splitKeywordValues(values []string) []string {

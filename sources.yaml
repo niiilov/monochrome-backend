@@ -5,25 +5,26 @@ sources:
     name: SecurityLab
     kind: rss
     url: https://www.securitylab.ru/_services/export/rss/news/
+    fetch: true
   - id: xakep
     name: Хакер
     kind: rss
     url: https://xakep.ru/feed/
+    fetch: true
   - id: cnews
     name: CNews
     kind: rss
     url: https://www.cnews.ru/inc/rss/news.xml
+    fetch: true
   - id: comnews
     name: ComNews
-    kind: html
-    url: https://www.comnews.ru/
-    item: article
-    title: h2
-    link: h2 a
-    date: time
-    text: p
+    kind: rss
+    url: https://www.comnews.ru/rss
+    fetch: true
+    article: ".field-name-body"
   - id: ptsecurity
     name: Positive Technologies
     kind: api
     url: https://www.ptsecurity.com/api/news
     items: items
+    fetch: true

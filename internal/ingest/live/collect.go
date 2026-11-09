@@ -136,7 +136,18 @@ func (c Collector) prepare() Collector {
 		c.Config.MaxRetries = 0
 	}
 	if c.HTTP == nil {
-		c.HTTP = &http.Client{Timeout: time.Duration(c.Config.TimeoutSec) * time.Second}
+		c.HTTP = &http.Client{
+			Timeout: time.Duration(c.Config.TimeoutSec) * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 5 {
+					return errors.New("слишком много переадресаций")
+				}
+				if len(via) > 0 && !sameHost(via[0].URL.Host, req.URL.Host) {
+					return errors.New("переадресация на другой сайт")
+				}
+				return nil
+			},
+		}
 	}
 	return c
 }
@@ -163,7 +174,66 @@ func (c Collector) one(ctx context.Context, src Source) ([]domain.Article, domai
 	if err != nil {
 		return nil, downEntry(src, clip(err.Error(), 240)), false
 	}
+	// Feeds list the whole archive. Keep the head, which is the newest items.
+	if len(arts) > maxItemsPerSource {
+		arts = arts[:maxItemsPerSource]
+	}
+	if src.Fetch {
+		arts = c.enrich(ctx, src, arts)
+	}
 	return arts, domain.JournalEntry{}, true
+}
+
+const (
+	maxItemsPerSource = 12
+	maxArticleFetches = 8
+	articleEnough     = 700
+	articleTimeout    = 8 * time.Second
+	sourceFetchBudget = 25 * time.Second
+)
+
+// enrich opens item pages when the listing text is only a short blurb.
+// A failed page keeps the listing text. The source itself still counts as read.
+func (c Collector) enrich(ctx context.Context, src Source, arts []domain.Article) []domain.Article {
+	budget, cancel := context.WithTimeout(ctx, sourceFetchBudget)
+	defer cancel()
+	once := c
+	once.Config.MaxRetries = 0
+	fetched := 0
+	for i := range arts {
+		if err := budget.Err(); err != nil || fetched >= maxArticleFetches {
+			break
+		}
+		link := strings.TrimSpace(arts[i].URL)
+		if !isHTTP(link) {
+			link = resolveLink(src.URL, link)
+		}
+		if !sameSite(src.URL, link) || utf8.RuneCountInString(arts[i].Text) >= articleEnough {
+			continue
+		}
+		fetched++
+		pageCtx, pageCancel := context.WithTimeout(budget, articleTimeout)
+		body, err := once.get(pageCtx, link)
+		pageCancel()
+		if err != nil {
+			continue
+		}
+		title, text, published := extractPage(src, body)
+		text = FoldParts(normalize.Clean(text), foldBudget)
+		if text == "" || utf8.RuneCountInString(text) <= utf8.RuneCountInString(arts[i].Text) {
+			continue
+		}
+		arts[i].Text = text
+		arts[i].RawText = text
+		arts[i].URL = link
+		if strings.TrimSpace(arts[i].Title) == "" && title != "" {
+			arts[i].Title = strings.TrimSpace(normalize.Clean(title))
+		}
+		if strings.TrimSpace(arts[i].PublishedRaw) == "" && published != "" {
+			arts[i].PublishedRaw = published
+		}
+	}
+	return arts
 }
 
 func (c Collector) get(ctx context.Context, rawURL string) ([]byte, error) {
