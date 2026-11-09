@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// SendVerification sends one registration code through the same SMTP sender as digest mail.
+// SendVerification sends one registration code using this mailer's original SMTP settings.
 // The digest allowlist and dry-run do not apply: the code must reach the address being registered.
 func (m *Mailer) SendVerification(ctx context.Context, email, code string) error {
 	if len(code) != 6 || strings.Trim(code, "0123456789") != "" {

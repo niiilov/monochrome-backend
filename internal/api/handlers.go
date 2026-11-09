@@ -232,8 +232,13 @@ func (s *Server) send(w http.ResponseWriter, r *http.Request) {
 		s.sendSaved(w, r, dir, body, text, html)
 		return
 	}
+	delivery, err := s.digestMailer(r.Context(), currentUser(r).ID)
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
 	// Recipients are the request list only. Letter text is not scanned for addresses.
-	res, err := s.mail.Send(r.Context(), mailer.Request{
+	res, err := delivery.Send(r.Context(), mailer.Request{
 		Recipients: body.Recipients,
 		DryRun:     body.DryRun,
 		Message: mailer.Message{

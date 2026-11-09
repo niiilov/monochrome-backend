@@ -63,6 +63,15 @@ type Recipient struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// SMTPSettings belongs to one account and is used only for digest delivery.
+type SMTPSettings struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"-"`
+	From     string `json:"from"`
+}
+
 // Repository always scopes reads to the authenticated user. Tokens are SHA-256 hashes.
 type Repository interface {
 	Register(context.Context, User, string, string, time.Time) (User, error)
@@ -74,6 +83,9 @@ type Repository interface {
 	CreateSession(context.Context, string, string, time.Time) error
 	SessionUser(context.Context, string) (User, error)
 	DeleteSession(context.Context, string) error
+	GetSMTPSettings(context.Context, string) (SMTPSettings, error)
+	SaveSMTPSettings(context.Context, string, SMTPSettings) error
+	DeleteSMTPSettings(context.Context, string) error
 	CreateRun(context.Context, Run) error
 	UpdateRun(context.Context, Run) error
 	GetRun(context.Context, string, string) (Run, error)

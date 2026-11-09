@@ -41,6 +41,7 @@ type memoryStore struct {
 	runs          map[string]storage.Run
 	recipients    map[string]storage.Recipient
 	sources       map[string]storage.Source
+	smtpSettings  map[string]storage.SMTPSettings
 }
 
 func newMemoryStore() *memoryStore {
@@ -218,6 +219,33 @@ func (db *memoryStore) RecoverRuns(_ context.Context) error {
 	return nil
 }
 func (db *memoryStore) Ping(context.Context) error { return nil }
+
+func (db *memoryStore) GetSMTPSettings(_ context.Context, userID string) (storage.SMTPSettings, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	settings, ok := db.smtpSettings[userID]
+	if !ok {
+		return settings, storage.ErrNotFound
+	}
+	return settings, nil
+}
+
+func (db *memoryStore) SaveSMTPSettings(_ context.Context, userID string, settings storage.SMTPSettings) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if db.smtpSettings == nil {
+		db.smtpSettings = map[string]storage.SMTPSettings{}
+	}
+	db.smtpSettings[userID] = settings
+	return nil
+}
+
+func (db *memoryStore) DeleteSMTPSettings(_ context.Context, userID string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	delete(db.smtpSettings, userID)
+	return nil
+}
 
 func recipientKey(userID, id string) string { return userID + "\n" + id }
 

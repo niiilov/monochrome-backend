@@ -90,7 +90,7 @@ type Mailer struct {
 	now   func() time.Time
 }
 
-// New builds a mailer. SMTP credentials come only from cfg, which Load fills from the environment.
+// New builds a mailer from SMTP settings.
 func New(cfg config.Mail, log *slog.Logger) *Mailer {
 	if log == nil {
 		log = slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -126,6 +126,21 @@ func (m *Mailer) SetSender(s Sender) {
 	if s != nil {
 		m.send = s
 	}
+}
+
+// SMTPConfig returns the server defaults. Callers must never expose the password.
+func (m *Mailer) SMTPConfig() config.Mail {
+	cfg := m.cfg
+	cfg.Allowlist = append([]string(nil), cfg.Allowlist...)
+	return cfg
+}
+
+// WithSMTP builds an independent digest sender, preserving delivery policies.
+// It never changes the original mailer used to send registration codes.
+func (m *Mailer) WithSMTP(smtp config.Mail) *Mailer {
+	cfg := m.SMTPConfig()
+	cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.From = smtp.Host, smtp.Port, smtp.User, smtp.Password, smtp.From
+	return New(cfg, m.log)
 }
 
 // Send validates recipients, writes a journal line and either records a dry-run or calls SMTP.

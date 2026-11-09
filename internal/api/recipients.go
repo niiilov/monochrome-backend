@@ -177,9 +177,14 @@ func (s *Server) sendSaved(w http.ResponseWriter, r *http.Request, dir string, b
 		dry = *body.DryRun
 	}
 	results := make([]map[string]any, 0, len(addresses))
+	delivery, err := s.digestMailer(r.Context(), currentUser(r).ID)
+	if err != nil {
+		s.databaseError(w, err)
+		return
+	}
 	sent := 0
 	for _, email := range addresses {
-		res, sendErr := s.mail.Send(r.Context(), mailer.Request{
+		res, sendErr := delivery.Send(r.Context(), mailer.Request{
 			Recipients:   []string{email},
 			DryRun:       &dry,
 			Unrestricted: true,
