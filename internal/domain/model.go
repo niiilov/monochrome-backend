@@ -204,9 +204,25 @@ type RunParams struct {
 	OutDir      string    `json:"out_dir"`
 	ExtraPaths  []string  `json:"extra_paths"`
 	Keywords    []string  `json:"keywords,omitempty"`
-	// Live collects the sites from sources.yaml for this run.
-	// The global live.enabled switch stays off for everyone else.
-	Live bool `json:"live,omitempty"`
+	// Live collects this run from Sources. The global live.enabled switch stays off.
+	Live    bool         `json:"live,omitempty"`
+	Sources []LiveSource `json:"sources,omitempty"`
+}
+
+// LiveSource is one site collected for a single run.
+type LiveSource struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Kind    string `json:"kind"`
+	URL     string `json:"url"`
+	Item    string `json:"item,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Link    string `json:"link,omitempty"`
+	Date    string `json:"date,omitempty"`
+	Text    string `json:"text,omitempty"`
+	Items   string `json:"items,omitempty"`
+	Fetch   bool   `json:"fetch,omitempty"`
+	Article string `json:"article,omitempty"`
 }
 
 // RunState is the in-memory result of a pipeline run.

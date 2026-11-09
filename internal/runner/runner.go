@@ -210,8 +210,12 @@ func (w *work) load(ctx context.Context) error {
 			return fmt.Errorf("загрузка набора: %w", err)
 		}
 	}
-	// A run can ask for sites on its own. The config switch still covers the CLI flag.
-	if w.params.Live || w.deps.Config.Live.Enabled {
+	// A run with its own site list uses that list. An empty list with the live
+	// flag, and the CLI switch, still read sources.yaml.
+	switch {
+	case w.params.Live && len(w.params.Sources) > 0:
+		articles, rows = live.Merge(articles, rows, live.CollectSources(ctx, w.deps.Config.Live, liveSources(w.params.Sources)))
+	case w.params.Live || w.deps.Config.Live.Enabled:
 		articles, rows = live.Merge(articles, rows, live.Collect(ctx, w.deps.Config.Live))
 	}
 	w.articles = articles
@@ -223,6 +227,27 @@ func (w *work) load(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func liveSources(list []domain.LiveSource) []live.Source {
+	out := make([]live.Source, 0, len(list))
+	for _, item := range list {
+		out = append(out, live.Source{
+			ID:      item.ID,
+			Name:    item.Name,
+			Kind:    item.Kind,
+			URL:     item.URL,
+			Item:    item.Item,
+			Title:   item.Title,
+			Link:    item.Link,
+			Date:    item.Date,
+			Text:    item.Text,
+			Items:   item.Items,
+			Fetch:   item.Fetch,
+			Article: item.Article,
+		})
+	}
+	return out
 }
 
 func datasetPaths(p domain.RunParams) []string {

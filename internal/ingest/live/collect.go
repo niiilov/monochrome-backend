@@ -69,6 +69,23 @@ func (c Collector) Collect(ctx context.Context) Result {
 		return Result{Journal: []domain.JournalEntry{downEntry(Source{ID: "sources", Name: path}, clip(err.Error(), 240))}}
 	}
 	c.Dir = filepath.Dir(path)
+	return c.collectAll(ctx, sources)
+}
+
+// CollectSources reads the given sites. It does not open sources.yaml.
+func CollectSources(ctx context.Context, cfg config.Live, sources []Source) Result {
+	return Collector{Config: cfg}.CollectSources(ctx, sources)
+}
+
+// CollectSources reads the given sites. Context cancellation keeps what was already read.
+func (c Collector) CollectSources(ctx context.Context, sources []Source) Result {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return c.prepare().collectAll(ctx, sources)
+}
+
+func (c Collector) collectAll(ctx context.Context, sources []Source) Result {
 	var got Result
 	seen := map[string]bool{}
 	for _, src := range sources {

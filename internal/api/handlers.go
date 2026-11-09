@@ -114,7 +114,21 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		writeInput(w, err)
 		return
 	}
-	if err := s.launch(id, dir, domain.RunParams{DatasetPath: input.dataset, ControlTime: when, Keywords: input.keywords, Live: input.live}, "", currentUser(r).ID); err != nil {
+	var sources []domain.LiveSource
+	if input.live {
+		sources, err = s.enabledLiveSources(r.Context(), currentUser(r).ID)
+		if err != nil {
+			_ = os.RemoveAll(dir)
+			s.databaseError(w, err)
+			return
+		}
+		if len(sources) == 0 {
+			_ = os.RemoveAll(dir)
+			writeErr(w, http.StatusBadRequest, "включите хотя бы один источник")
+			return
+		}
+	}
+	if err := s.launch(id, dir, domain.RunParams{DatasetPath: input.dataset, ControlTime: when, Keywords: input.keywords, Live: input.live, Sources: sources}, "", currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -271,6 +285,7 @@ func (s *Server) articles(w http.ResponseWriter, r *http.Request) {
 		ExtraPaths:  extras,
 		Keywords:    append([]string(nil), params.Keywords...),
 		Live:        params.Live,
+		Sources:     append([]domain.LiveSource(nil), params.Sources...),
 	}, view.RunID, currentUser(r).ID); err != nil {
 		_ = os.RemoveAll(dir)
 		writeErr(w, http.StatusInternalServerError, err.Error())

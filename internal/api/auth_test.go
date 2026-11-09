@@ -25,8 +25,9 @@ import (
 )
 
 type testAccount struct {
-	user storage.User
-	hash string
+	user          storage.User
+	hash          string
+	sourcesSeeded bool
 }
 type testToken struct {
 	userID  string
@@ -39,10 +40,11 @@ type memoryStore struct {
 	verifications map[string]testToken
 	runs          map[string]storage.Run
 	recipients    map[string]storage.Recipient
+	sources       map[string]storage.Source
 }
 
 func newMemoryStore() *memoryStore {
-	return &memoryStore{users: map[string]testAccount{}, sessions: map[string]testToken{}, verifications: map[string]testToken{}, runs: map[string]storage.Run{}, recipients: map[string]storage.Recipient{}}
+	return &memoryStore{users: map[string]testAccount{}, sessions: map[string]testToken{}, verifications: map[string]testToken{}, runs: map[string]storage.Run{}, recipients: map[string]storage.Recipient{}, sources: map[string]storage.Source{}}
 }
 func (db *memoryStore) Register(_ context.Context, u storage.User, hash, token string, expires time.Time) (storage.User, error) {
 	db.mu.Lock()
@@ -51,7 +53,7 @@ func (db *memoryStore) Register(_ context.Context, u storage.User, hash, token s
 		return storage.User{}, storage.ErrEmailTaken
 	}
 	u.CreatedAt = time.Now()
-	db.users[u.Email] = testAccount{u, hash}
+	db.users[u.Email] = testAccount{user: u, hash: hash}
 	db.verifications[token] = testToken{u.ID, expires}
 	return u, nil
 }
@@ -246,6 +248,95 @@ func (db *memoryStore) UpdateRecipient(_ context.Context, userID, id, status str
 	item.Status = status
 	db.recipients[recipientKey(userID, id)] = item
 	return item, nil
+}
+
+func (db *memoryStore) EnsureSources(_ context.Context, userID string, defaults []storage.Source) ([]storage.Source, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	var account testAccount
+	var email string
+	found := false
+	for key, item := range db.users {
+		if item.user.ID == userID {
+			account, email, found = item, key, true
+			break
+		}
+	}
+	if !found {
+		return nil, storage.ErrNotFound
+	}
+	if !account.sourcesSeeded {
+		for i, item := range defaults {
+			item.UserID = userID
+			item.Position = i
+			item.CreatedAt = time.Now().Add(time.Duration(i))
+			db.sources[recipientKey(userID, item.ID)] = item
+		}
+		account.sourcesSeeded = true
+		db.users[email] = account
+	}
+	return db.sourcesOf(userID), nil
+}
+
+func (db *memoryStore) sourcesOf(userID string) []storage.Source {
+	list := []storage.Source{}
+	for _, item := range db.sources {
+		if item.UserID == userID {
+			list = append(list, item)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].Position == list[j].Position {
+			return list[i].ID < list[j].ID
+		}
+		return list[i].Position < list[j].Position
+	})
+	return list
+}
+
+func (db *memoryStore) CreateSource(_ context.Context, userID string, item storage.Source) (storage.Source, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	for _, have := range db.sources {
+		if have.UserID == userID && have.URL == item.URL {
+			return storage.Source{}, storage.ErrSourceTaken
+		}
+	}
+	item.UserID = userID
+	item.CreatedAt = time.Now()
+	item.Position = len(db.sourcesOf(userID))
+	db.sources[recipientKey(userID, item.ID)] = item
+	return item, nil
+}
+
+func (db *memoryStore) UpdateSource(_ context.Context, userID string, item storage.Source) (storage.Source, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	old, ok := db.sources[recipientKey(userID, item.ID)]
+	if !ok {
+		return storage.Source{}, storage.ErrNotFound
+	}
+	for _, have := range db.sources {
+		if have.UserID == userID && have.ID != item.ID && have.URL == item.URL {
+			return storage.Source{}, storage.ErrSourceTaken
+		}
+	}
+	item.UserID = userID
+	item.Position = old.Position
+	item.CreatedAt = old.CreatedAt
+	db.sources[recipientKey(userID, item.ID)] = item
+	return item, nil
+}
+
+func (db *memoryStore) DeleteSource(_ context.Context, userID, id string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	key := recipientKey(userID, id)
+	if _, ok := db.sources[key]; !ok {
+		return storage.ErrNotFound
+	}
+	delete(db.sources, key)
+	return nil
 }
 
 func (db *memoryStore) DeleteRecipient(_ context.Context, userID, id string) error {

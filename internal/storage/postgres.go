@@ -264,6 +264,101 @@ func (db *Postgres) DeleteRecipient(ctx context.Context, userID, id string) erro
 	return nil
 }
 
+func (db *Postgres) EnsureSources(ctx context.Context, userID string, defaults []Source) ([]Source, error) {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	var seeded bool
+	err = tx.QueryRow(ctx, `SELECT sources_seeded FROM users WHERE id=$1 FOR UPDATE`, userID).Scan(&seeded)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	if !seeded {
+		for i, item := range defaults {
+			item.Position = i
+			if _, err = tx.Exec(ctx, insertSourceSQL, item.ID, userID, item.Name, item.Kind, item.URL, item.Enabled, item.Fetch, item.Article, item.Item, item.Title, item.Link, item.Date, item.Text, item.Items, item.Position); err != nil {
+				return nil, err
+			}
+		}
+		if _, err = tx.Exec(ctx, `UPDATE users SET sources_seeded=true WHERE id=$1`, userID); err != nil {
+			return nil, err
+		}
+	}
+	list, err := listSources(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (db *Postgres) CreateSource(ctx context.Context, userID string, item Source) (Source, error) {
+	err := db.pool.QueryRow(ctx, `INSERT INTO sources(id,user_id,name,kind,url,enabled,"fetch",article,item,title,link,date_sel,text_sel,items,position)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,(SELECT COALESCE(MAX(position),0)+1 FROM sources WHERE user_id=$2))
+		RETURNING position,created_at`, item.ID, userID, item.Name, item.Kind, item.URL, item.Enabled, item.Fetch, item.Article, item.Item, item.Title, item.Link, item.Date, item.Text, item.Items).Scan(&item.Position, &item.CreatedAt)
+	var pgerr *pgconn.PgError
+	if errors.As(err, &pgerr) && pgerr.Code == "23505" && pgerr.ConstraintName == "sources_user_url_key" {
+		return Source{}, ErrSourceTaken
+	}
+	if err != nil {
+		return Source{}, err
+	}
+	item.UserID = userID
+	return item, nil
+}
+
+func (db *Postgres) UpdateSource(ctx context.Context, userID string, item Source) (Source, error) {
+	err := db.pool.QueryRow(ctx, `UPDATE sources SET name=$3,kind=$4,url=$5,enabled=$6,"fetch"=$7,article=$8,item=$9,title=$10,link=$11,date_sel=$12,text_sel=$13,items=$14
+		WHERE id=$1 AND user_id=$2
+		RETURNING id,user_id,name,kind,url,enabled,"fetch",article,item,title,link,date_sel,text_sel,items,position,created_at`,
+		item.ID, userID, item.Name, item.Kind, item.URL, item.Enabled, item.Fetch, item.Article, item.Item, item.Title, item.Link, item.Date, item.Text, item.Items).Scan(
+		&item.ID, &item.UserID, &item.Name, &item.Kind, &item.URL, &item.Enabled, &item.Fetch, &item.Article, &item.Item, &item.Title, &item.Link, &item.Date, &item.Text, &item.Items, &item.Position, &item.CreatedAt)
+	var pgerr *pgconn.PgError
+	if errors.As(err, &pgerr) && pgerr.Code == "23505" && pgerr.ConstraintName == "sources_user_url_key" {
+		return Source{}, ErrSourceTaken
+	}
+	return item, notFound(err)
+}
+
+func (db *Postgres) DeleteSource(ctx context.Context, userID, id string) error {
+	res, err := db.pool.Exec(ctx, `DELETE FROM sources WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+const insertSourceSQL = `INSERT INTO sources(id,user_id,name,kind,url,enabled,"fetch",article,item,title,link,date_sel,text_sel,items,position)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`
+
+type sourceQuery interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+func listSources(ctx context.Context, q sourceQuery, userID string) ([]Source, error) {
+	rows, err := q.Query(ctx, `SELECT id,user_id,name,kind,url,enabled,"fetch",article,item,title,link,date_sel,text_sel,items,position,created_at FROM sources WHERE user_id=$1 ORDER BY position,id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	list := []Source{}
+	for rows.Next() {
+		var item Source
+		if err = rows.Scan(&item.ID, &item.UserID, &item.Name, &item.Kind, &item.URL, &item.Enabled, &item.Fetch, &item.Article, &item.Item, &item.Title, &item.Link, &item.Date, &item.Text, &item.Items, &item.Position, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, item)
+	}
+	return list, rows.Err()
+}
+
 // RecoverRuns is for the single worker process that owns the runs volume.
 func (db *Postgres) RecoverRuns(ctx context.Context) error {
 	_, err := db.pool.Exec(ctx, `UPDATE runs SET status='failed', snapshot=snapshot || jsonb_build_object('status','failed','error','сервер перезапущен до конца прогона','finished_at',to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"')) WHERE status='running'`)

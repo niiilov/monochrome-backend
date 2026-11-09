@@ -90,12 +90,13 @@ type runView struct {
 }
 
 type storedRequest struct {
-	DatasetPath string    `json:"dataset_path"`
-	ControlTime time.Time `json:"control_time"`
-	ExtraPaths  []string  `json:"extra_paths,omitempty"`
-	Keywords    []string  `json:"keywords,omitempty"`
-	Live        bool      `json:"live,omitempty"`
-	ParentRunID string    `json:"parent_run_id,omitempty"`
+	DatasetPath string              `json:"dataset_path"`
+	ControlTime time.Time           `json:"control_time"`
+	ExtraPaths  []string            `json:"extra_paths,omitempty"`
+	Keywords    []string            `json:"keywords,omitempty"`
+	Live        bool                `json:"live,omitempty"`
+	Sources     []domain.LiveSource `json:"sources,omitempty"`
+	ParentRunID string              `json:"parent_run_id,omitempty"`
 }
 
 // Options configures HTTP sessions and trusted server-side dataset directories.
@@ -165,6 +166,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{id}/journal", s.authenticated(s.journal))
 	mux.HandleFunc("GET /api/v1/runs/{id}/report", s.authenticated(s.report))
 	mux.HandleFunc("GET /api/v1/runs/{id}/export", s.authenticated(s.export))
+	mux.HandleFunc("GET /api/v1/sources", s.authenticated(s.listSources))
+	mux.HandleFunc("POST /api/v1/sources", s.authenticated(s.createSource))
+	mux.HandleFunc("PATCH /api/v1/sources/{id}", s.authenticated(s.updateSource))
+	mux.HandleFunc("DELETE /api/v1/sources/{id}", s.authenticated(s.deleteSource))
 	mux.HandleFunc("GET /api/v1/recipients", s.authenticated(s.listRecipients))
 	mux.HandleFunc("POST /api/v1/recipients", s.authenticated(s.createRecipients))
 	mux.HandleFunc("PATCH /api/v1/recipients/{id}", s.authenticated(s.updateRecipient))
@@ -248,6 +253,7 @@ func (s *Server) launch(id, dir string, params domain.RunParams, parent, userID 
 		ExtraPaths:  append([]string(nil), params.ExtraPaths...),
 		Keywords:    append([]string(nil), params.Keywords...),
 		Live:        params.Live,
+		Sources:     append([]domain.LiveSource(nil), params.Sources...),
 		ParentRunID: parent,
 	}
 	if err := writeJSONFile(filepath.Join(dir, "request.json"), req); err != nil {
@@ -367,6 +373,7 @@ func (s *Server) lookup(ctx context.Context, userID, id string) (runView, domain
 		ExtraPaths:  req.ExtraPaths,
 		Keywords:    append([]string(nil), req.Keywords...),
 		Live:        req.Live,
+		Sources:     append([]domain.LiveSource(nil), req.Sources...),
 	}, nil
 }
 

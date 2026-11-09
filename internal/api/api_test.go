@@ -284,8 +284,11 @@ func TestCreateFromSitesSkipsDataset(t *testing.T) {
 	}
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
-	if len(stub.calls) != 1 || !stub.calls[0].Live || stub.calls[0].DatasetPath != "" {
+	if len(stub.calls) != 1 || !stub.calls[0].Live || stub.calls[0].DatasetPath != "" || len(stub.calls[0].Sources) != 5 {
 		t.Fatalf("params %+v", stub.calls)
+	}
+	if stub.calls[0].Sources[0].Name != "SecurityLab" || stub.calls[0].Sources[3].URL != "https://www.comnews.ru/rss" {
+		t.Fatalf("sources %+v", stub.calls[0].Sources)
 	}
 
 	code, _, raw := doJSON(t, http.MethodPost, ts.URL+"/api/v1/runs", `{"control_time":"2026-11-09T10:00:00+03:00"}`)
